@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>echarts</title>
+    <script src="/static/echarts/dist/echarts-en.js"></script>
+</head>
+<body>
+<div id="kLineGraph" style="width: 800px; height: 600px; float: left"></div>
+<div id="profitLineGraph" style="width: 800px; height: 600px; float: left"></div>
+<script src="/static/lib/jquery-1.11.0.min.js"></script>
+<script src="/static/models/kLine.js"></script>
+<script src="/static/models/line.js"></script>
+<script type="text/javascript">
+    var kLineGraph = echarts.init(document.getElementById('kLineGraph'));
+    var option = getKLineOption();
+    kLineGraph.setOption(option);
+    drawLine('profitLineGraph');
+</script>
+</body>
+</html>
