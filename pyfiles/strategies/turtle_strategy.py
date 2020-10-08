@@ -54,26 +54,28 @@ class TurtleStrategy(Strategy):
         # print("before trading")
         return
 
-    def handle_data(self, sec_code: str):
+    def handle_data(self):
         # print("handle data")
-        ma = data_client.get_ma(self.g.benchmark_days, to_date_str(self.account.previous_dt), sec_code, 'D')
-        price = data_client.get_price(to_date_str(self.account.previous_dt), sec_code, 'close')
-        operate_price = data_client.get_price(to_date_str(self.account.current_dt), sec_code, 'open')
-        # print("证券代码：%s, 当前价格：%f， 前一天20天均线：%f。" % (code, price, ma))
-        # 买入
-        if price > ma:
-            position = self.account.has_position(sec_code)
-            if position is None:  # 如果无该持仓
-                trade_amount = math.floor(self.account.portfolio.inout_cash
-                                          / (self.g.N * operate_price * 100)) * 100
-            else:  # 如果有该持仓
-                trade_amount = math.floor(position.available_cash
-                                          / (operate_price * 100)) * 100
-            if trade_amount > 0:
-                order(self.account, self.g, sec_code, operate_price, trade_amount, 'B')
-        # 卖出
-        if price < ma:
-            order(self.account, self.g, sec_code, operate_price, self.account.get_sec_amount(sec_code), 'S')
+        for sec_code in self.g.context:
+            if data_client.is_trade(code=sec_code, date=to_date_str(account.current_dt)):
+                ma = data_client.get_ma(self.g.benchmark_days, to_date_str(self.account.previous_dt), sec_code, 'D')
+                price = data_client.get_price(to_date_str(self.account.previous_dt), sec_code, 'close')
+                operate_price = data_client.get_price(to_date_str(self.account.current_dt), sec_code, 'open')
+                # print("证券代码：%s, 当前价格：%f， 前一天20天均线：%f。" % (code, price, ma))
+                # 买入
+                if price > ma:
+                    position = self.account.has_position(sec_code)
+                    if position is None:  # 如果无该持仓
+                        trade_amount = cal_stock_amount(operate_price, self.account.portfolio.inout_cash / self.g.N)
+                    else:  # 如果有该持仓
+                        trade_amount = cal_stock_amount(operate_price, position.available_cash)
+                    if trade_amount > 0:
+                        order(self.account, self.g, sec_code, operate_price, trade_amount, 'B')
+                # 卖出
+                if price < ma:
+                    order(self.account, self.g, sec_code, operate_price, self.account.get_sec_amount(sec_code), 'S')
+            else:
+                continue
 
     def after_trade_end(self):
         # print("after trading")

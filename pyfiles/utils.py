@@ -12,86 +12,8 @@ class GlobalVariable:
         self.N = None
         self.benchmark_days = None
         self.context = None
+        self.period = None
 
-
-class AccountInfo:
-    """
-    总账户
-    """
-    portfolio = None  # 资金账户
-    current_dt = None  # 账户当前的日期
-    previous_dt = None  # 前上个交易日
-    positions = []  # 账户持仓
-    run_paras = dict()  # 此次运行的参数
-    metrics = None
-
-    def __init__(self, **kwargs):
-        self.run_paras["start_date"] = to_date(kwargs.get("start_date", None))
-        self.run_paras["end_date"] = to_date(kwargs.get("end_date", None))
-        if self.current_dt is None:
-            self.current_dt = self.run_paras["start_date"]
-
-    def set_paras(self, **kwargs):
-        self.current_dt = to_date(kwargs.get("current_dt", self.current_dt))
-        self.run_paras["start_date"] = to_date(kwargs.get("start_date", self.run_paras["start_date"]))
-        self.run_paras["end_date"] = to_date(kwargs.get("end_date", self.run_paras["end_date"]))
-        if self.current_dt is None:
-            self.current_dt = self.run_paras["start_date"]
-
-    def set_cur_dt(self, cur_dt: str):
-        self.current_dt = to_date(cur_dt)
-
-    def set_portfolio(self, portfolio):
-        self.portfolio = portfolio
-
-    # 返回指定证券的持有数量
-    def get_sec_amount(self, sec_code: str):
-        for position in self.positions:
-            if position.sec_code == sec_code:
-                return position.amount
-        return 0
-
-    # 查看是否有某支证券的持仓
-    def has_position(self, sec_code: str):
-        for position in self.positions:
-            if position.sec_code == sec_code:
-                return position
-        return None
-
-    # 每个交易日需要更新持仓等相关数据
-    def daily_update(self):
-        # 更新持仓
-        for position in self.positions:
-            position.daily_update(self.current_dt)
-        # 更新资金账户
-        self.portfolio.daily_update(self.positions)
-        # 记录指标
-        self.metrics.add_profit(self.portfolio.profit, to_date_str(self.current_dt))
-
-
-class Security(object):
-    code = None  # 证券代码
-    name = None  # 证券名称
-
-    def __init__(self, **kwargs):
-        self.code = kwargs.get("code", None)
-        self.name = kwargs.get("name", None)
-
-
-class Order(object):
-    status = None  # 订单状态
-    add_time = None  # 订单生成时间
-    is_buy = None  # 买单或卖单
-    amount = None  # 下单数量
-    # filled = None  # 已经成效数量
-    security_code = None  # 证券代码
-    order_id = None  # 订单ID
-    price = None  # 平均成交价格
-    # side = None  # 订单类型 多/空 long/short
-    # commission = None  # 交易费用（佣金、税费等）
-
-    def __init__(self, **kwargs):
-        self.status = kwargs.get("status", None)
 
 class Position(object):
     """
@@ -136,7 +58,7 @@ class Position(object):
         # 该持仓可用资金
         self.available_cash = self.available_cash + price * amount * -1
 
-    def daily_update(self, date: datetime):
+    def daily_update(self, date: str):
         # 将价格更新为当天收盘价
         self.price = data_client.get_price(date, self.sec_code, 'close')
         # 更新单支证券持仓市值
@@ -146,6 +68,16 @@ class Position(object):
         # 单支证券浮盈/亏
         self.float_profit = self.total_value - self.acc_avg_cost * self.amount
 
+    def clear(self, price: float, portfolio):
+        """
+        按指定价格清空该持仓
+        :param portfolio: 资金账户
+        :param price: 清仓价
+        :return:
+        """
+        # print('清仓，价格：%f，数量：%d' % (price, self.amount))
+        portfolio.trade(money=price*self.amount, side='S')
+        self.trade(price=price, amount=self.amount, side='S')
 
 class Portfolio(object):
     """
@@ -201,8 +133,12 @@ class Portfolio(object):
             # 当不可取的可用资金不足以支付本次购买时，需要在可取资金中扣除
             if available_cash - self.transferable_cash < money:
                 self.transferable_cash = available_cash - money
+            # print("买入：" + str(money))
+            # print("当前可用总现金： " + str(self.available_cash))
         elif side == 'S':
             self.available_cash = self.available_cash + money
+            # print("卖出：" + str(money))
+            # print("当前可用总现金： " + str(self.available_cash))
         else:
             raise ParamError("参数错误（B/S）")
 
@@ -217,7 +153,7 @@ class Portfolio(object):
         self.transferable_cash = self.available_cash
         # 更新账户利润
         self.profit = self.total_asset-self.inout_cash
-        print("资金账户更新完毕")
+        # print("资金账户更新完毕")
 
 
 class Metrics(object):
@@ -282,7 +218,7 @@ class Metrics(object):
             if rate > max_profit:
                 max_profit = rate
             if self.max_drawdown_rate < max_profit - rate:
-                self.max_drawdown_rate = max_profit - rate
+                self.max_drawdown_rate = float_precision(max_profit - rate, 2)
 
 
 class Strategy(object):
@@ -304,10 +240,102 @@ class Strategy(object):
     def before_trade_start(self):
         pass
 
-    def handle_data(self, sec_code: str):
+    def handle_data(self):
         pass
 
     def after_trade_end(self):
         pass
 
+
+class AccountInfo:
+    """
+    总账户
+    """
+    portfolio: Portfolio = None  # 资金账户
+    current_dt: datetime.date = None  # 账户当前的日期
+    previous_dt: datetime.date = None  # 前上个交易日
+    positions = []  # 账户持仓
+    run_paras = dict()  # 此次运行的参数
+    metrics: Metrics = None
+
+    def __init__(self, **kwargs):
+        self.run_paras["start_date"] = to_date(kwargs.get("start_date", None))
+        self.run_paras["end_date"] = to_date(kwargs.get("end_date", None))
+        if self.current_dt is None:
+            self.current_dt = self.run_paras["start_date"]
+
+    def set_paras(self, **kwargs):
+        self.current_dt = to_date(kwargs.get("current_dt", self.current_dt))
+        self.run_paras["start_date"] = to_date(kwargs.get("start_date", self.run_paras["start_date"]))
+        self.run_paras["end_date"] = to_date(kwargs.get("end_date", self.run_paras["end_date"]))
+        if self.current_dt is None:
+            self.current_dt = self.run_paras["start_date"]
+
+    def set_cur_dt(self, cur_dt: str):
+        self.current_dt = to_date(cur_dt)
+
+    def set_portfolio(self, portfolio):
+        self.portfolio = portfolio
+
+    # 返回指定证券的持有数量
+    def get_sec_amount(self, sec_code: str):
+        for position in self.positions:
+            if position.sec_code == sec_code:
+                return position.amount
+        return 0
+
+    # 查看是否有某支证券的持仓
+    def has_position(self, sec_code: str):
+        for position in self.positions:
+            if position.sec_code == sec_code:
+                return position
+        return None
+
+    # 每个交易日需要更新持仓等相关数据
+    def daily_update(self):
+        # 更新持仓
+        for position in self.positions:
+            position.daily_update(to_date_str(self.current_dt))
+        # 更新资金账户
+        self.portfolio.daily_update(self.positions)
+        # 记录指标
+        self.metrics.add_profit(self.portfolio.profit, to_date_str(self.current_dt))
+
+    def clear_position(self):
+        """
+        清仓操作，将所有持仓按指定日期开盘价卖出
+        :param date: 清仓日
+        :return:
+        """
+        for position in self.positions:
+            # print("清仓：" + position.sec_code)
+            price = data_client.get_price(date=to_date_str(self.current_dt), sec_code=position.sec_code,
+                                          price_type='open')
+            position.clear(price=price, portfolio=self.portfolio)
+        self.positions = []
+
+
+class Security(object):
+    code = None  # 证券代码
+    name = None  # 证券名称
+
+    def __init__(self, **kwargs):
+        self.code = kwargs.get("code", None)
+        self.name = kwargs.get("name", None)
+
+
+class Order(object):
+    status = None  # 订单状态
+    add_time = None  # 订单生成时间
+    is_buy = None  # 买单或卖单
+    amount = None  # 下单数量
+    # filled = None  # 已经成效数量
+    security_code = None  # 证券代码
+    order_id = None  # 订单ID
+    price = None  # 平均成交价格
+    # side = None  # 订单类型 多/空 long/short
+    # commission = None  # 交易费用（佣金、税费等）
+
+    def __init__(self, **kwargs):
+        self.status = kwargs.get("status", None)
 

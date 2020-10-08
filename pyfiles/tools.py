@@ -2,6 +2,8 @@
 import six
 import datetime
 from pyfiles.exceptions import *
+import json
+import math
 # from pyfiles.utils import *
 
 # 检测是否为字符串
@@ -9,34 +11,51 @@ def is_str(s):
     return isinstance(s, six.string_types)
 
 
-# 将表示时间的datetime对象转化为字符串
-def to_date_str(date):
-    if date is None:
-        return None
+def to_date_str(date, split='-') -> str:
+    """
+    将表示时间的datetime对象转化为字符串
+    :param date: 所要转换为字符串的对象
+    :param split: 日期字符串的分隔符
+    :return: 日期字符串
+    """
     if isinstance(date, six.string_types):
         return date
-    if isinstance(date, datetime.datetime):
-        return date.strftime("%Y-%m-%d %H:%M:%S")
-    if isinstance(date, datetime.date):
-        return date.strftime("%Y-%m-%d")
+    elif isinstance(date, datetime.datetime):
+        return date.strftime("%Y"+split+"%m"+split+"%d %H:%M:%S")
+    elif isinstance(date, datetime.date):
+        return date.strftime("%Y"+split+"%m"+split+"%d")
+    else:
+        raise ParamError("datetime error")
 
 
-# 将时间字符串转换为datetime的date对象，即只取日期部分
-def to_date(date):
+def to_date(date, split='-'):
+    """
+    将时间字符串转换为datetime的date对象，即只取日期部分
+    :param date: 所要转换的日期字符串
+    :param split: 该日期字符串中所用的分隔符，适用于只使用一种分隔符的字符串
+    :return: date对象
+    """
     if is_str(date):
         if ':' in date:
-            date = date[:10]
-        return datetime.datetime.strptime(date, '%Y-%m-%d').date()
+            date = date[:8+2*len(split)]
+        return datetime.datetime.strptime(date, '%Y'+split+'%m'+split+'%d').date()
     elif isinstance(date, datetime.datetime):
         return date.date()
     elif isinstance(date, datetime.date):
         return date
     elif date is None:
         return None
-    return ParamError("type error")
+    else:
+        raise ParamError("type error")
 
-# 将浮点数精确到指定位数
-def float_precision(num: float, precision: int):
+
+def float_precision(num: float, precision: int) -> float:
+    """
+    将浮点数精确到指定位数
+    :param num: 精确的浮点数
+    :param precision: 指定的小数位数
+    :return:
+    """
     return float(format(num, '.%df' % precision))
 
 # 将数据频率转换为表名后缀
@@ -55,15 +74,15 @@ def fq_trans(fq: str):
 
 # 属性名解释
 def attr_explain(attr_name: str):
-    name_dict = dict()
-    attrs = ['trade_date', 'ts_code', 'open', 'close', 'high', 'low', 'pre_close', 'change',
-             'pct_chg', 'vol', 'amount', 'turnover_rate', 'volume_ratio', 'adj_factor',
-             'cal_date', 'is_open', 'avg_float_mv', 'dividend_yield_ratio', 'float_mv',
-             'pb', 'pe', 'turnover_pct', 'avg_price']
-    explains = ['交易日期', '证券代码', '开盘价', '收盘价', '最高价', '最低价', '前一天收盘价', '涨跌额',
-                '涨跌幅', '成交量（手/亿股）', '交易额（千元/亿元）', '换手率（%）', '量比', '复权因子',
-                '交易日历日期', '是否为交易日', '平均流动市值', '股息率', '流动市值',
-                '市净率', '市盈率', '成交额占比（%）', '平均价格']
-    for i in range(len(attrs)):
-        name_dict[attrs[i]] = explains[i]
+    with open('../../data/attr_info.json') as f:
+        name_dict = json.load(f)
+    print(name_dict)
     return name_dict[attr_name]
+
+# 根据日期获取对应季度
+def get_quarter(date: datetime) -> int:
+    return date.month % 3 + 1
+
+#
+def cal_stock_amount(price, cash):
+    return math.floor(cash / (price * 100)) * 100
