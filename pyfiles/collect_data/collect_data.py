@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 from opendatatools import swindex
+from pyfiles.tools import *
 import sqlalchemy as sa
-import chardet
+import pymongo
+import tushare as ts
+import datetime
+import time
 
 def get_sw_index():
     """
@@ -39,5 +43,227 @@ def get_sw_index():
         print(indexes[i] + ' end')
 
 
+def get_fina_data():
+    """
+    从tushare接口获取财务数据并存入mongoDB数据库中
+    :return:
+    """
+    client = pymongo.MongoClient(host='localhost', port=27017)
+    db = client['fina_db']
+    pro = ts.pro_api()
+    data = pro.stock_basic(list_status='L', exchange="SSE", fields='ts_code,symbol,name,list_date')
+    # 设置起始位置
+    start_index = data['ts_code'].tolist().index('688198.SH')+1
+    # start_index = 0
+    # 判断对应表是否已存在
+    if 'fina_'+data['ts_code'][start_index][:6] in db.collection_names():
+        print(data['ts_code'][start_index] + '已存在')
+        return
+    #
+    for i in range(start_index, len(data)):
+        code = data['ts_code'][i]
+        #
+        print(code + " start")
+        fina_data = pro.fina_indicator(ts_code=code)
+        db['fina_' + code[:6]].insert_many(fina_data.to_dict(orient='record'))
+        #
+        print(code + " store completely")
+        time.sleep(0.5)
+    client.close()
+
+
+def get_income_data():
+    """
+    调用tushare接口获取个股利润表数据存入mongoDB数据库中
+    :return:
+    """
+    client = pymongo.MongoClient(host='localhost', port=27017)
+    db = client['income_db']
+    pro = ts.pro_api()
+    basic_data = pro.stock_basic(list_status='L', exchange='', fields='ts_code,symbol,name,list_date')
+    #
+    # start_index = 201
+    start_index = basic_data['ts_code'].tolist().index('603693.SH')+1
+    # 判断对应表是否已存在
+    if 'income_' + basic_data['ts_code'][start_index][:6] in db.collection_names():
+        print(basic_data['ts_code'][start_index] + '已存在')
+        return
+    #
+    for i in range(start_index, len(basic_data)):
+        code = basic_data['ts_code'][i]
+        print(code + ' start')
+        #
+        income_data = pro.income(ts_code=code)
+        db['income_' + code[:6]].insert_many(income_data.to_dict(orient='record'))
+        #
+        print(code + ' stor completely')
+        time.sleep(0.5)
+    client.close()
+
+
+def get_balance_data():
+    """
+    调用tushare接口获取资产负债表数据并存储到mongDB数据库中
+    :return:
+    """
+    client = pymongo.MongoClient(host='localhost', port=27017)
+    db = client['balance_db']
+    pro = ts.pro_api()
+    basic_data = pro.stock_basic(list_status='L', exchange='', fields='ts_code,symbol,list_date')
+    #
+    # start_index = 801
+    start_index = basic_data['ts_code'].tolist().index('688078.SH')+1
+    # 判断对应表是否已存在
+    if 'balance_' + basic_data['ts_code'][start_index][:6] in db.collection_names():
+        print(basic_data['ts_code'][start_index] + '已存在')
+        return
+    #
+    for i in range(start_index, len(basic_data)):
+        code = basic_data['ts_code'][i]
+        print(code + ' start')
+        #
+        balance_data = pro.balancesheet(ts_code=code)
+        db['balance_' + code[:6]].insert_many(balance_data.to_dict(orient='record'))
+        #
+        print(code + ' store completely')
+        time.sleep(0.5)
+    client.close()
+
+
+def get_cashflow_data():
+    """
+    从tushare接口获取现金流量数据并存入mongoDB数据库中
+    :return:
+    """
+    client = pymongo.MongoClient(host='localhost', port=27017)
+    db = client['cashflow_db']
+    pro = ts.pro_api()
+    basic_data = pro.stock_basic(list_status='L', exchange='', fields='ts_code,symbol,list_date')
+    #
+    # start_index = 1501
+    start_index = basic_data['ts_code'].tolist().index('603333.SH')+1
+    # 判断对应表是否已存在
+    if 'cashflow_' + basic_data['ts_code'][start_index][:6] in db.collection_names():
+        print(basic_data['ts_code'][start_index] + '已存在')
+        return
+    #
+    for i in range(start_index, len(basic_data)):
+        code = basic_data['ts_code'][i]
+        print(code + ' start')
+        #
+        cashflow_data = pro.cashflow(ts_code=code)
+        db['cashflow_'+code[:6]].insert_many(cashflow_data.to_dict(orient='record'))
+        #
+        print(code + ' store completely')
+        time.sleep(0.5)
+    client.close()
+
+
+def get_stock_k(code: str, start_date=None, freq='D'):
+    """
+    从tushare获取指定股票的k线数据并存入到Mysql数据库中，
+    :param code: 股票代码
+    :param start_date: 数据的起始日期
+    :param freq: 数据频率，'D','W','M','Y'分别表示日、周、月、年
+    :return:
+    """
+    table_name = code[:6] + '_' + fq_trans(freq)
+    conn = sa.create_engine("mysql+mysqldb://root:qq16281091@localhost:3306/stock?charset=utf8")
+    #
+    df = ts.pro_bar(ts_code=code, start_date=start_date, adj='qfq', ma=[5, 10, 20, 30, 60, 120, 250],
+                    factors=['tor', 'vr'], adjfactor=True)
+    df.to_sql(name=table_name, con=conn, if_exists='append', index=False,
+              dtype={'trade_date': sa.DateTime()})
+    #
+    conn.execute("alter table " + table_name + " add primary key(trade_date);")
+
+
+def get_index_k(code: str, start_date=None, freq='D'):
+    """
+    从tushare接口获取指定指数的k线数据并存入MySQL数据库中
+    :param code: 指数代码
+    :param start_date: 开始日期
+    :param freq: 频率，同上
+    :return:
+    """
+    table_name = code[:6] + '_' + fq_trans(freq)
+    print(code + " start")
+    #
+    conn = sa.create_engine("mysql+mysqldb://root:qq16281091@localhost:3306/indexes?charset=utf8")
+    df = ts.pro_bar(ts_code=code, asset='I', ma=[5, 10, 20, 30, 60, 120, 250])
+    df.to_sql(name=table_name, con=conn, if_exists='append', index=False,
+              dtype={'trade_date': sa.DateTime()})
+    conn.execute("alter table " + table_name + " add primary key(trade_date);")
+    #
+    print(code + "store completely")
+
+
+def stock_dk():
+    """
+    从tushare获取股票代表，对每支股分别调用get_stock_k函数向数据库中存数据
+    :return:
+    """
+    ts.set_token(token="92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947")
+    pro = ts.pro_api()
+    data = pro.stock_basic(list_status='L', exchange="SZSE", fields='ts_code,symbol,name,list_date')
+    #
+    start_index = 2150
+    for i in range(start_index, start_index + 150):
+        code = data['ts_code'][i]
+        start_date = data['list_date'][i]
+        print(code + " start")
+        #
+        start_date = datetime.datetime.strptime(start_date, "%Y%m%d")
+        start_date += datetime.timedelta(days=1)
+        start_date = start_date.strftime("%Y%m%d")
+        get_stock_k(code, start_date)
+        #
+        print(code + " store completely")
+
+
+def index_dk():
+    """
+    指定要获取的指数列表，对每个指数分别调用get_index_k将数据存入数据库
+    :return:
+    """
+    ts.set_token(token='92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947')
+    pro = ts.pro_api()
+    indexs = ['399300.SZ', '000009.SH', '000010.SH', '000016.SH', '399001.SZ', '399005.SZ', '399006.SZ', '399005.SZ',
+              '000852.SH']
+    # for code in indexs:
+    #     init_index_k(code)
+    get_index_k('000852.SH')
+
+
+def get_backup_dk():
+    """
+    从tushare接口获取个股其他的每日指标，包括市值、行业等数据存入MongoDB数据库
+    :return:
+    """
+    client = pymongo.MongoClient(host='localhost', port=27017)
+    db = client['backup_daily_db']
+    pro = ts.pro_api()
+    basic_data = pro.stock_basic(list_status='L', exchange='', fields='ts_code,symbol,list_date')
+    #
+    # start_index = 0
+    start_index = basic_data['ts_code'].tolist().index('603590.SH') + 1
+    # 判断对应表是否已存在
+    if 'backup_daily_' + basic_data['ts_code'][start_index][:6] in db.collection_names():
+        print(basic_data['ts_code'][start_index] + '已存在')
+        return
+    #
+    for i in range(start_index, start_index+500):
+        code = basic_data['ts_code'][i]
+        print(code + ' start')
+        #
+        df = pro.bak_daily(ts_code=code)
+        df = df[df.columns[15:]]
+        db['backup_daily_'+code[:6]].insert_many(df.to_dict(orient='record'))
+        #
+        print(code + ' store completely')
+        time.sleep(0.5)
+
 if __name__ == '__main__':
-    get_sw_index()
+    ts.set_token('92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947')
+    # get_sw_index()
+    get_backup_dk()
