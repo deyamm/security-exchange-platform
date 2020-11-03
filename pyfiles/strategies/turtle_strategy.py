@@ -5,44 +5,37 @@
     如果前一天收盘价低于前一天20天均线，则将该股全部卖出。
 """
 from pyfiles.api import *
-from pyfiles.data_client import data_client
+from pyfiles.data_client import DataClient
 # from pyfiles.utils import *
 import math
 
 
 # 策略初始化
 class TurtleStrategy(Strategy):
-    account = None
-    g = None
 
-    def __init__(self, account: AccountInfo, g: GlobalVariable):
-        super().__init__()
-        self.account = account
-        self.g = g
-
-    def initialize(self):
-        # 设置回测范围
-        self.account.set_paras(start_date='2018-01-01', end_date='2019-02-01')
-        # 资金账户
-        self.account.portfolio = Portfolio(100000)
-        # 指标
-        self.account.metrics = Metrics(self.account.portfolio.inout_cash, 0)
-        # 初始化设置
-        self.set_params()
-        self.set_variables()
-        self.set_backtest()
+    def __init__(self, **kwargs):
+        super().__init__(kwargs=kwargs)
+        self.data_client = DataClient()
+        self.account = AccountInfo(data_client=self.data_client)
+        self.g = GlobalVariable()
 
     # 设置策略参数
     def set_params(self):
-        self.g.context = ['000001.SZ', '000002.SZ', '000006.SZ', '000007.SZ', '000009.SZ']  # 股票池
+        self.g.sec_pool = ['000001.SZ', '000002.SZ', '000006.SZ', '000007.SZ', '000009.SZ']  # 股票池
         # self.g.context = ['000006.SZ']
         # self.g.tc = 15  # 调仓频率
         self.g.N = 5  # 股池数目
         # self.g.N = 1
         self.g.benchmark_days = 20
+        self.g.period = 1
 
     # 设置中间变量
     def set_variables(self):
+        # 设置基准指数
+        self.account.metrics.set_basic_profit_rate(index_code='399005',
+                                                   start_dt=to_date_str(self.account.run_paras['start_date']),
+                                                   end_dt=to_date_str(self.account.run_paras['end_date']),
+                                                   freq='D')
         return
 
     # 设置回测条件
@@ -56,11 +49,11 @@ class TurtleStrategy(Strategy):
 
     def handle_data(self):
         # print("handle data")
-        for sec_code in self.g.context:
-            if data_client.is_trade(code=sec_code, date=to_date_str(account.current_dt)):
-                ma = data_client.get_ma(self.g.benchmark_days, to_date_str(self.account.previous_dt), sec_code, 'D')
-                price = data_client.get_price(to_date_str(self.account.previous_dt), sec_code, 'close')
-                operate_price = data_client.get_price(to_date_str(self.account.current_dt), sec_code, 'open')
+        for sec_code in self.g.sec_pool:
+            if self.data_client.is_trade(sec_code=sec_code, dt=to_date_str(self.account.current_date)):
+                ma = self.data_client.get_ma(self.g.benchmark_days, to_date_str(self.account.previous_date), sec_code, 'D')
+                price = self.data_client.get_price(to_date_str(self.account.previous_date), sec_code, 'close')
+                operate_price = self.data_client.get_price(to_date_str(self.account.current_date), sec_code, 'open')
                 # print("证券代码：%s, 当前价格：%f， 前一天20天均线：%f。" % (code, price, ma))
                 # 买入
                 if price > ma:

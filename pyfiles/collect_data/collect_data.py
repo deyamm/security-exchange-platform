@@ -6,6 +6,8 @@ import pymongo
 import tushare as ts
 import datetime
 import time
+from typing import List
+
 
 def get_sw_index():
     """
@@ -43,20 +45,21 @@ def get_sw_index():
         print(indexes[i] + ' end')
 
 
-def get_fina_data():
+def get_fina_data(attrs: List[str] = None):
     """
     从tushare接口获取财务数据并存入mongoDB数据库中
+
     :return:
     """
     client = pymongo.MongoClient(host='localhost', port=27017)
     db = client['fina_db']
     pro = ts.pro_api()
-    data = pro.stock_basic(list_status='L', exchange="SSE", fields='ts_code,symbol,name,list_date')
+    data = pro.stock_basic(list_status='P', exchange="SSE", fields='ts_code,symbol,name,list_date')
     # 设置起始位置
-    start_index = data['ts_code'].tolist().index('688198.SH')+1
-    # start_index = 0
-    # 判断对应表是否已存在
-    if 'fina_'+data['ts_code'][start_index][:6] in db.collection_names():
+    # start_index = data['ts_code'].tolist().index('300380.SZ')+1
+    start_index = 0
+    # 当表还未创建时，判断对应表是否已存在
+    if attrs is None and 'fina_'+data['ts_code'][start_index][:6] in db.collection_names():
         print(data['ts_code'][start_index] + '已存在')
         return
     #
@@ -64,11 +67,18 @@ def get_fina_data():
         code = data['ts_code'][i]
         #
         print(code + " start")
-        fina_data = pro.fina_indicator(ts_code=code)
-        db['fina_' + code[:6]].insert_many(fina_data.to_dict(orient='record'))
+        if attrs is None:  # 向表中插入原始数据
+            fina_data = pro.fina_indicator(ts_code=code)
+            db['fina_' + code[:6]].insert_many(fina_data.to_dict(orient='record'))
+        else:  # 向表中追加数据
+            fina_data = pro.fina_indicator(ts_code=code, fields='end_date,'+','.join(attrs))
+            for j in range(len(fina_data)):
+                # print(fina_data.loc[j, fina_data.columns[1:]].to_dict())
+                db['fina_'+code[:6]].update(spec={"ts_code": code, "end_date": fina_data.loc[j, 'end_date']},
+                                            document={"$set": fina_data.loc[j, fina_data.columns[1:]].to_dict()})
         #
         print(code + " store completely")
-        time.sleep(0.5)
+        time.sleep(0.2)
     client.close()
 
 
@@ -266,4 +276,4 @@ def get_backup_dk():
 if __name__ == '__main__':
     ts.set_token('92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947')
     # get_sw_index()
-    get_backup_dk()
+    get_fina_data()

@@ -3,7 +3,7 @@ import MySQLdb as sql
 import numpy as np
 import pandas as pd
 import pyfiles.tools as tool
-from pyfiles.back_test import back_test
+from pyfiles.back_test import BackTest
 
 def k_data(sec_code: str, **kwargs):
     # 存储绘制k线图的数据
@@ -38,14 +38,14 @@ def k_data(sec_code: str, **kwargs):
 
 
 def get_profit_line():
-    indicator = back_test()
+    indicator = BackTest().back_test()
     res = dict()
     res['profit_line'] = indicator.float_profit_rate
     res['trade_date'] = indicator.trade_date
     res['basic_profit_line'] = indicator.basic_profit_rate
     res['sharpe_ratio'] = indicator.sharpe_ratio
     res['max_drawdown'] = indicator.max_drawdown_rate
-    print(res)
+    # print(res)
     return res
 
 
