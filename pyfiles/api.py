@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 from pyfiles.utils import *
+from pyfiles import variables
 
-def order(account: AccountInfo, g: GlobalVariable, sec_code: str, price: float, amount: int, side: str):
+
+def order(account: AccountInfo, g: GlobalVariable, sec_code: str, price: float, amount: int, side: str, **kwargs):
     """
     下单函数
     :param account:
@@ -18,6 +20,7 @@ def order(account: AccountInfo, g: GlobalVariable, sec_code: str, price: float, 
     # 资金账户 Portfolio
     portfolio = account.portfolio
     totol_money = price * amount
+    echo_info = kwargs.get("echo_info", 1)
     if side == 'B':  # 买入
         # 已有该股的持仓
         position = account.has_position(sec_code=sec_code)
@@ -29,14 +32,18 @@ def order(account: AccountInfo, g: GlobalVariable, sec_code: str, price: float, 
             # 调整账户资金
             portfolio.trade(sec_code=sec_code, price=price, amount=amount, side='B',
                             dt=to_date_str(account.current_date))
-            # print('新增持仓，买入证券%s成功，数量%d，价格%f，总价%f' % (sec_code, amount, price, amount*price))
+            if echo_info >= variables.ECHO_INFO_TRADE:
+                print('新增，%s，%s，数量：%d，价格：%f，总价：%f，剩余现金：%f'
+                      % (to_date_str(account.current_date), sec_code, amount, price, amount*price, account.portfolio.available_cash))
         else:
             # 调整持仓
             position.trade(price=price, amount=amount, side='B', dt=to_date_str(account.current_date))
             # 调整资金账户, 'B'表示买入证券
             portfolio.trade(sec_code=sec_code, price=price, amount=amount,
                             side='B', dt=to_date_str(account.current_date))
-            # print('买入证券%s成功，数量%d，价格%f，总价%f' % (sec_code, amount, price, amount*price))
+            if echo_info >= variables.ECHO_INFO_TRADE:
+                print('买入，%s，%s，数量：%d，价格：%f，总价：%f，剩余现金：%f'
+                      % (to_date_str(account.current_date), sec_code, amount, price, amount*price, account.portfolio.available_cash))
     elif side == 'S':  # 卖出
         for position in positions:
             if position.sec_code == sec_code:
@@ -47,7 +54,9 @@ def order(account: AccountInfo, g: GlobalVariable, sec_code: str, price: float, 
                 # 调整资金
                 portfolio.trade(sec_code=sec_code, price=price, amount=amount,
                                 side='S', dt=to_date_str(account.current_date))
-                # print('卖出证券%s成功，数量%d，价格%f，总价%f' % (sec_code, amount, price, amount*price))
+                if echo_info >= variables.ECHO_INFO_TRADE:
+                    print('卖出，%s，%s，数量：%d，价格：%f，总价%f，剩余现金：%f'
+                          % (to_date_str(account.current_date), sec_code, amount, price, amount*price, account.portfolio.available_cash))
                 return
         # 未有该证券的仓位
         # raise ParamError("持仓不足")

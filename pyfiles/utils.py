@@ -8,11 +8,13 @@ import traceback
 
 from pyfiles.exceptions import *
 from pyfiles.data_client import DataClient
+from pyfiles import variables
 from typing import List
 from pyfiles.tools import *
 import numpy as np
 import time
 import os
+
 
 class TradeLog(object):
 
@@ -44,7 +46,7 @@ class TradeLog(object):
             log_index = log_df[log_df['sec_code'] == sec_code].index.tolist()
         with open(path, 'a') as f:
             for i in log_index:
-                f.write(self.logs[i]+'\n')
+                f.write(self.logs[i] + '\n')
 
 
 class GlobalVariable:
@@ -114,7 +116,7 @@ class Position(object):
 
     def daily_update(self, dt: str, data_client: DataClient):
         # 将价格更新为当天收盘价
-        self.price = data_client.get_price(dt, self.sec_code, 'close')
+        self.price = data_client.get_price(dt, self.sec_code, 'close', 'last')
         # 更新单支证券持仓市值
         self.total_value = self.price * self.amount
         # T+1，将可用数量设置为持有数量
@@ -192,7 +194,7 @@ class Portfolio(object):
         if side == 'B':
             # 判断资金是否足够
             if self.available_cash < money:
-                self.log.save_log(path=self.log_path+'log.txt', sec_code=sec_code)
+                self.log.save_log(path=self.log_path + 'log.txt', sec_code=sec_code)
                 raise MoneyError("账户资金不足。当前资金： %f, 需要资金：%f。"
                                  % (self.available_cash, money))
             available_cash = self.available_cash
@@ -223,13 +225,12 @@ class Portfolio(object):
         # 第二天，可用资金将转化为可取资金
         self.transferable_cash = self.available_cash
         # 更新账户利润
-        self.profit = self.total_asset-self.inout_cash
-        # print("资金账户更新完毕")
+        self.profit = self.total_asset - self.inout_cash
         # print(id(self.profit))
 
     def __del__(self):
         # print(self.log.log_df)
-        self.log.save_log(path=self.log_path+'total_log.txt')
+        self.log.save_log(path=self.log_path + 'total_log.txt')
 
 
 class Metrics(object):
@@ -259,6 +260,15 @@ class Metrics(object):
         self.basic_profit_rate = []
 
     def set_basic_profit_rate(self, index_code: str, start_dt: str, end_dt: str, freq: str, data_client: DataClient):
+        """
+        设置基准收益率
+        :param index_code:
+        :param start_dt:
+        :param end_dt:
+        :param freq:
+        :param data_client:
+        :return:
+        """
         data = data_client.get_index_data(index_code=index_code, columns=['pct_chg'], start_dt=to_date_str(start_dt),
                                           end_dt=to_date_str(end_dt), freq=freq)
         self.basic_profit_rate.append(0)
@@ -271,7 +281,7 @@ class Metrics(object):
         # 添加当天日期
         self.trade_date.append(dt)
         # 添加收益率
-        self.float_profit_rate.append(float_precision((profit*100/self.principal), 2))
+        self.float_profit_rate.append(float_precision((profit * 100 / self.principal), 2))
 
     def cal_sharpe(self):
         """
@@ -302,10 +312,10 @@ class Metrics(object):
                 self.max_drawdown_rate = float_precision(max_profit - rate, 2)
 
     def period_profit_rate(self):
-        return float_precision(self.float_profit_rate[-1] - self.float_profit_rate[0], 2)
+        return float_precision(self.float_profit_rate[-1], 2)
 
 
-class AccountInfo:
+class AccountInfo(object):
     """
     总账户
     """
@@ -359,7 +369,8 @@ class AccountInfo:
         return None
 
     # 每个交易日需要更新持仓等相关数据
-    def daily_update(self):
+    def daily_update(self, **kwargs):
+        echo_info = kwargs.get("echo_info", 1)
         # 更新持仓
         for position in self.positions:
             position.daily_update(to_date_str(self.current_date), data_client=self.data_client)
@@ -367,19 +378,26 @@ class AccountInfo:
         self.portfolio.daily_update(self.positions)
         # 记录指标
         self.metrics.add_profit(self.portfolio.profit, to_date_str(self.current_date))
+        if echo_info >= variables.ECHO_INFO_ACCOUNT:
+            print("账户更新结束，%s，当前总资产：%f" % (to_date_str(self.current_date), self.portfolio.total_asset))
 
-    def clear_position(self):
+    def clear_position(self, **kwargs):
         """
         清仓操作，将所有持仓按指定日期开盘价卖出
         :return:
         """
+        echo_info = kwargs.get("echo_info", 1)
         for position in self.positions:
             # print("清仓：" + position.sec_code)
             if position.amount <= 0:
                 continue
             price = self.data_client.get_price(dt=to_date_str(self.current_date), sec_code=position.sec_code,
-                                               price_type='open')
+                                               price_type='open', not_exist='last')
+            amount = position.amount
             position.clear(price=price, portfolio=self.portfolio, dt=to_date_str(self.current_date))
+            if echo_info >= variables.ECHO_INFO_TRADE:
+                print("卖出，%s，%s，数量：%d，价格：%f， 剩余现金：%f"
+                      % (to_date_str(self.current_date), position.sec_code, amount, price, self.portfolio.available_cash))
         # self.positions = []
 
 
@@ -401,6 +419,7 @@ class Order(object):
     security_code = None  # 证券代码
     order_id = None  # 订单ID
     price = None  # 平均成交价格
+
     # side = None  # 订单类型 多/空 long/short
     # commission = None  # 交易费用（佣金、税费等）
 
@@ -413,6 +432,7 @@ class Strategy(object):
     g: GlobalVariable = None
     kwargs = None
     data_client: DataClient = None
+    backtest_params: dict = None
 
     def __init__(self, kwargs):
         # self.data_client = DataClient()
@@ -464,9 +484,10 @@ class Strategy(object):
         self.account.set_cur_date(cur_dt=to_date_str(current_date))
         self.account.set_pre_date(pre_dt=to_date_str(start_date))
         #
-        print("回测开始，开始日期：%s，结束日期：%s，账户总资金：%f，股池: %s"
-              % (to_date_str(start_date), to_date_str(end_date), self.account.portfolio.inout_cash,
-                 ','.join(self.g.sec_pool)))
+        if self.backtest_params['echo_info'] >= variables.ECHO_INFO_BE:
+            print("回测开始，开始日期：%s，结束日期：%s，账户总资金：%f，股池: %s"
+                  % (to_date_str(start_date), to_date_str(end_date), self.account.portfolio.inout_cash,
+                     ','.join(self.g.sec_pool)))
         time_start = time.time()
         current_date, self.account.previous_date = self.data_client.init_start_trade_date(
             start_dt=to_date_str(start_date), end_dt=to_date_str(end_date))
@@ -480,7 +501,7 @@ class Strategy(object):
                 if counter % self.g.period == 0:
                     self.handle_data()
                 self.after_trade_end()
-                self.account.daily_update()
+                self.account.daily_update(echo_info=self.backtest_params['echo_info'])
                 counter = counter + 1
             #
             if self.data_client.is_marketday(date=current_date):
@@ -488,7 +509,44 @@ class Strategy(object):
             current_date = current_date + datetime.timedelta(days=1)
             self.account.set_cur_date(cur_dt=to_date_str(current_date))
         time_end = time.time()
-        print("回测结束，本次用时：%fs" % (time_end - time_start))
+        if self.backtest_params['echo_info'] >= variables.ECHO_INFO_BE:
+            print("回测结束，本次用时：%fs" % (time_end - time_start))
         self.account.metrics.cal_max_drawdown()
         self.account.metrics.cal_sharpe()
         return self.account.metrics
+
+
+class BasicInfo(object):
+    """
+    存储证券基础信息，比如股票列表、指数列表、专业术语翻译等内容
+    """
+    stock_basic: pd.DataFrame = None
+    index_basic: pd.DataFrame = None
+    fund_basic: pd.DataFrame = None
+    trade_cal: pd.DataFrame = None
+
+    def __init__(self, **kwargs):
+        mysql = MySqlServer()
+        self.stock_basic = mysql.query("select * from basic_info.stock_basic")
+        self.index_basic = mysql.query("select * from basic_info.index_basic");
+        self.fund_basic = mysql.query("select * from basic_info.fund_basic")
+        self.trade_cal = mysql.query("select * from basic_info.trade_cal")
+
+    def word_translate(self, word, word_type):
+        if word_type == 'sec_code':  # 将证券名称转化为证券代码
+            word_list = self.stock_basic[self.stock_basic['name'] == word]['ts_code'].tolist()
+            if len(word_list) >= 1:
+                return word_list[0]
+            else:
+                return "translate error"
+        elif word_type == 'index_code':  # 将指数名称转化为指数代码
+            word_list = self.index_basic[self.index_basic['name'] == word]['ts_code'].tolist()
+            if len(word_list) >= 1:
+                return word_list[0]
+            else:
+                return "translate error"
+        elif word_type == 'noun':  # 将术语转化为该平台通用的英文字符串
+            if word == '股池':
+                return 'sec_pool'
+        else:
+            return 'undetermined'

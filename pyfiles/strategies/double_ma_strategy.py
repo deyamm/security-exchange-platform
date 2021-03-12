@@ -47,7 +47,7 @@ class DoubleMAStrategy(Strategy):
                 long_ma = self.data_client.get_ma(days=self.long_ma_day, dt=to_date_str(self.account.previous_date),
                                                   sec_code=sec_code, fq='D')
                 operate_price = self.data_client.get_price(dt=to_date_str(self.account.current_date), sec_code=sec_code,
-                                                           price_type='open')
+                                                           price_type='open', not_exist='last')
                 # 买入
                 if short_ma > long_ma:
                     position = self.account.has_position(sec_code)

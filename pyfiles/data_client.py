@@ -12,6 +12,7 @@ from typing import List, Iterable
 import pymongo
 import tushare as ts
 from pyfiles.tools import *
+from pyfiles.variables import *
 
 
 class DataClient(object):
@@ -20,6 +21,7 @@ class DataClient(object):
     trade_cal = None
     mongo_client = None
     pro = None
+    error_level = None
 
     def __init__(self, **kwargs):
         host = kwargs.get("host", 'localhost')
@@ -28,11 +30,11 @@ class DataClient(object):
         passwd = kwargs.get("passwd", 'qq16281091')
         db = kwargs.get("db", 'stock')
         charset = kwargs.get("charset", 'utf8')
+        self.error_level = kwargs.get("error_level", ERROR_L1)
         # 建立连接
         self.connect = sql.connect(host=host, port=port, user=user, passwd=passwd, db=db, charset=charset)
         self.cursor = self.connect.cursor()
         self.mongo_client = pymongo.MongoClient(host='localhost', port=27017)
-
         # 将整个交易日历存储下来
         query = "select * from basic_info.trade_cal"
         self.cursor.execute(query)
@@ -44,7 +46,7 @@ class DataClient(object):
         ts.set_token('92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947')
         self.pro = ts.pro_api()
 
-    def stock_basic(self, list_status: str = 'L', exchange: str = None) -> pd.DataFrame:
+    def stock_basic(self, list_status='L', exchange: str = None) -> pd.DataFrame:
         """
         股票基本信息，数据采集自tushare stock_basic接口
         :param list_status: 上市状态 L上市， D退市，P暂停上市，默认为L
@@ -95,7 +97,7 @@ class DataClient(object):
                                    columns=[col[0] for col in self.cursor.description])
         return index_basic
 
-    def index_weight(self, index_code: str, trade_date: datetime.date) -> pd.DataFrame:
+    def index_weight(self, index_code: str, trade_date: datetime.date = None) -> pd.DataFrame:
         """
         从tushare获取指定日期的指数成分，
           由于指数成分及权重是变化的，所以获取成分时需要指定日期，
@@ -106,6 +108,8 @@ class DataClient(object):
         """
         # 日期区间从上个月的1日开始到交易日期，
         # 由于trade_date可能为1月，所以通过timedelta来获取开始日期
+        if trade_date is None:
+            trade_date = datetime.date(2020, 9, 1)
         start_date = trade_date - datetime.timedelta(days=31)
         end_date = datetime.date(trade_date.year, trade_date.month, trade_date.day)
         data = self.pro.index_weight(index_code=index_code,
@@ -115,35 +119,89 @@ class DataClient(object):
         target_date = data['trade_date'].drop_duplicates()[0]
         return data[data['trade_date'] == target_date]
 
-    def get_pre_trade_dt(self, sec_code: str, dt: str) -> str:
+    def get_pre_trade_dt(self, sec_code: str, dt: str, is_index: bool = False):
         """
         获取指定证券在指定日期前的最后一个交易日
+        :param is_index:
         :param sec_code: 证券代码
         :param dt: 指定的日期
         :return:
         """
-        query = "select trade_date from %s_daily where trade_date < '%s'" % (sec_code[:6], dt)
-        self.cursor.execute(query)
+        if is_index:
+            query = "select trade_date from stock.%s_daily where trade_date < '%s'" % (sec_code[:6], dt)
+        else:
+            query = "select trade_date from stock.%s_daily where trade_date < '%s'" % (sec_code[:6], dt)
+        try:
+            self.cursor.execute(query)
+        except Exception:
+            print(sec_code + "不存在")
+            return None
         dates = np.array(self.cursor.fetchall()).ravel()
         # 应先转化为str
         if to_date_str(dates[-1].date()) == dt:
             return to_date_str(dates[-2].date())
         return to_date_str(dates[-1].date())
 
-    def get_back_trade_dt(self, sec_code: str, dt: str) -> str:
+    def get_back_trade_dt(self, sec_code: str, dt: str, is_index: bool = False) -> str:
         """
         获取指定证券在指定日期后的第一个交易日
+        :param is_index:
         :param sec_code: 指定证券代码
         :param dt: 指定的日期
         :return:
         """
-        query = "select trade_date from %s_daily where trade_date > '%s'" % (sec_code[:6], dt)
+        if is_index:
+            query = "select trade_date from indexes.%s_daily where trade_date > '%s'" % (sec_code[:6], dt)
+        else:
+            query = "select trade_date from stock.%s_daily where trade_date > '%s'" % (sec_code[:6], dt)
         self.cursor.execute(query)
         dates = np.array(self.cursor.fetchall()).ravel()
         # 应先转化为str
         if to_date_str(dates[0].date()) == dt:
             return to_date_str(dates[1].date())
         return to_date_str(dates[0].date())
+
+    def get_k_data(self, dt: str, sec_codes: List[str], columns: str or List[str], fq: str = 'D', **kwargs):
+        """
+        :param dt:
+        :param sec_codes:
+        :param fq:
+        :param columns:
+        :param kwargs:
+        :return:
+        """
+        if isinstance(columns, str):
+            columns = [columns]
+        mas = kwargs.get("ma", None)
+        filters = kwargs.get("filters", {})
+        is_recur = kwargs.get("is_recur", True)
+        if mas is not None and len(mas) > 0:
+            for ma in mas:
+                columns.append("ma" + str(ma))
+        data = pd.DataFrame(columns=columns)
+        filter_query = get_option_query(filters)
+        for sec_code in sec_codes:
+            table_name = sec_code[:6] + '_' + fq_trans(fq)
+            # print(columns)
+            query = "select %s from stock.%s where trade_date='%s'" \
+                    % (",".join(columns), table_name, dt)
+            if len(filter_query) > 0:
+                query = query + ' and ' + filter_query
+            # print('mysql query ', query)
+            try:
+                self.cursor.execute(query)
+            except Exception as e:
+                raise SQLError("未找到%s表，或不存在指定属性" % table_name)
+            res = np.array(self.cursor.fetchall())
+            if len(res) > 0:
+                data = pd.concat([data, pd.DataFrame(res, columns=[col[0] for col in self.cursor.description])],
+                                 axis=0, ignore_index=True)
+            else:
+                if is_recur:
+                    t_data = self.get_k_data(self.get_pre_trade_dt(dt=dt, sec_code=sec_code),
+                                             sec_codes=[sec_code], fq=fq, columns=columns, filters=filters)
+                    data = pd.concat([data, t_data], axis=0, ignore_index=True)
+        return data
 
     def get_ma(self, days: int, dt: str, sec_code: str, fq: str) -> float:
         """
@@ -162,7 +220,7 @@ class DataClient(object):
         try:
             self.cursor.execute(query)
         except Exception as e:
-            raise ParamError("未找到%s表，或不存在指定属性" % table_name)
+            raise SQLError("未找到%s表，或不存在指定属性" % table_name)
         #
         res = np.array(self.cursor.fetchall())
         if len(res > 0) and len(res[0] > 0):
@@ -171,9 +229,10 @@ class DataClient(object):
             return self.get_ma(days=days, dt=self.get_pre_trade_dt(sec_code=sec_code, dt=dt),
                                sec_code=sec_code, fq=fq)  # 返回上一个交易日的数据
 
-    def get_price(self, dt: str, sec_code: str, price_type: str) -> float:
+    def get_price(self, dt: str, sec_code: str, price_type: str, not_exist: str = 'none'):
         """
-        获取指定证券指定日期的指定类型价格
+        获取指定证券指定日期的指定类型价格，如果指定日期
+        :param not_exist: 当指定日期价格不存在时返回的数据（last/none)
         :param dt: 指定日期
         :param sec_code: 指定证券代码
         :param price_type: 价格类型，有开盘价（high）、收盘价（close）、最高价（high）、最低价（low）
@@ -187,14 +246,19 @@ class DataClient(object):
         try:
             self.cursor.execute(query)
         except Exception as e:
-            raise ParamError("未找到%s表，或价格类型（open/close/high/low）错误")
+            raise SQLError("未找到%s表，或价格类型（open/close/high/low）错误")
         res = np.array(self.cursor.fetchall())
         # print(res[0][0])
         if len(res) > 0 and len(res[0]) > 0:
             return res[0][0]
         else:
-            return self.get_price(dt=self.get_pre_trade_dt(dt=dt, sec_code=sec_code),
-                                  sec_code=sec_code, price_type=price_type)  # 返回前一交易日价格
+            if not_exist == 'none':
+                return None
+            elif not_exist == 'last':
+                return self.get_price(dt=self.get_pre_trade_dt(dt=dt, sec_code=sec_code),
+                                      sec_code=sec_code, price_type=price_type)  # 返回前一交易日价格
+            else:
+                raise ParamError("param error(last/none)")
 
     def get_volume(self, sec_code: str, start_dt: str, end_dt: str, freq: str) -> Iterable:
         """
@@ -211,6 +275,96 @@ class DataClient(object):
         self.cursor.execute(query)
         volume = np.array(self.cursor.fetchall()).flatten().tolist()
         return volume
+
+    def get_profit_rates(self, sec_codes: List[str], start_dt: str, end_dt: str,
+                         base_index: str = None, rate_cal_method: int = 2) -> pd.DataFrame:
+        """
+        获取一系列证券在一段时间范围内的收益率，考虑分红影响，用收盘价×复权因子
+        :param rate_cal_method:
+        :param base_index: 基准指数
+        :param sec_codes:
+        :param start_dt:
+        :param end_dt:
+        :return:
+        """
+        res = pd.DataFrame(columns=['sec_code', 'profit_rate', 'base_profit_rate'])
+        res.set_index('sec_code', inplace=True)
+        for code in sec_codes:
+            res.loc[code, 'profit_rate'] = self.get_profit_rate(sec_code=code, start_dt=start_dt, end_dt=end_dt,
+                                                                rate_cal_method=rate_cal_method)
+        if base_index is None:
+            res.drop(['base_profit_rate'], axis=1, inplace=True)
+            return res
+        else:
+            res['base_profit_rate'] = self.get_profit_rate(sec_code=base_index, start_dt=start_dt, end_dt=end_dt,
+                                                           is_index=True, rate_cal_method=rate_cal_method)
+            return res
+
+    def get_profit_rate(self, sec_code: str, start_dt: str, end_dt: str, is_index=False, by: str = 'price'):
+        """
+        获取一支证券在一段时间范围内的收益率，考虑分红影响，用收盘价×复权因子
+        :param by: 两种计算方法，price使用实际价格与复权因子计算，pct则使用每天涨跌幅来计算
+        :param is_index: 所要求的是否是指数的收益率
+        :param sec_code:
+        :param start_dt:
+        :param end_dt:
+        :return:
+        """
+        if start_dt >= end_dt:
+            return None
+        if by == 'price':
+            if is_index is False:
+                query = "select trade_date, close from stock.%s_daily " \
+                        "where trade_date between '%s' and '%s'" \
+                        % (sec_code[:6], self.get_pre_trade_dt(sec_code=sec_code, dt=start_dt), end_dt)
+            else:
+                query = "select trade_date, close from indexes.%s_daily where trade_date between '%s' and '%s'" \
+                        % (sec_code[:6], self.get_pre_trade_dt(sec_code=sec_code, dt=start_dt, is_index=True), end_dt)
+            try:
+                self.cursor.execute(query)
+            except Exception:
+                print(sec_code + "不存在")
+                return None
+            array = np.array(self.cursor.fetchall())
+            if len(array) <= 1:
+                return None
+            data = pd.DataFrame(array, columns=[col[0] for col in self.cursor.description])
+            data.sort_values(by='trade_date', inplace=True)
+            try:
+                if is_index is True:
+                    end_price = data.loc[len(data)-1, 'close']
+                    start_price = data.loc[0, 'close']
+                else:
+                    end_price = data.loc[len(data)-1, 'close']
+                    start_price = data.loc[0, 'close']
+            except KeyError as e:
+                print(sec_code + " price error")
+                print(e)
+                return 0
+            return float_precision(end_price/start_price - 1, 4)
+        elif by == 'pct':
+            if is_index is False:
+                query = "select trade_date, pct_chg from stock.%s_daily where trade_date between '%s' and '%s'" \
+                        % (sec_code[:6], start_dt, end_dt)
+            else:
+                query = "select trade_date, pct_chg from indexes.%s_daily where trade_date between '%s' and '%s'" \
+                        % (sec_code[:6], start_dt, end_dt)
+            try:
+                self.cursor.execute(query)
+            except Exception:
+                print(sec_code + "不存在")
+                return None
+            array = np.array(self.cursor.fetchall())
+            if len(array) <= 0:
+                return None
+            data = pd.DataFrame(array, columns=[col[0] for col in self.cursor.description])
+            data.sort_values(by='trade_date', inplace=True)
+            profit_rate = 1
+            for rate in data['pct_chg'].values:
+                profit_rate = profit_rate * (1 + rate/100)
+            return float_precision(profit_rate-1, 4)
+        else:
+            raise ParamError("param error(price/pct)")
 
     def init_start_trade_date(self, start_dt: str, end_dt: str):
         """
@@ -270,30 +424,38 @@ class DataClient(object):
         else:
             return True
 
-    def get_fina_report(self, sec_code: str, year: int, quarter: int) -> pd.DataFrame:
+    def get_fina_report(self, sec_code: str, year: int, quarter: int, **kwargs) -> pd.DataFrame:
         """
         获取某支证券在某次财报
-        ** 当前实现方法可以考虑直接通过year,quarter参数值直接获得报告期，进而获取相应财报
         :param sec_code: 目标证券代码
         :param year: 财报年
         :param quarter: 财报季
         :return:
         """
-        # 获取今年到下一年一季度的所有财报
-        first_day = datetime.date(year, 1, 1)
-        last_day = datetime.date(year + 1, 3, 31)  # 考虑quarter为4的情况
-        query = {"end_date": {"$gte": to_date_str(first_day, split=''),
-                              "$lte": to_date_str(last_day, split='')}}
+        filters = kwargs.get("filters", {})
+        end_date = get_fina_end_date(year=year, quarter=quarter, return_type='date')
+        query = {"end_date": to_date_str(end_date, split='')}
+        filter_query = get_option_query(filters, 'mongo')
+        query.update(filter_query)
+        # print(query)
         res = self.mongo_client['fina_db']['fina_'+sec_code[:6]].find(query, {'_id': 0})
-        # 将获取的数据按报告期递增排序，按季度quarter值来取相应数据
-        df = pd.DataFrame(list(res)).sort_values(by='end_date').reset_index(drop=True)
-        if len(df) < quarter:
-            raise ParamError(sec_code + " 季度错误")
+        df = pd.DataFrame(list(res))
+        if len(df) == 1:
+            return df
         else:
-            if math.ceil(int(df.loc[quarter-1, 'end_date'][4:6])/3) != quarter:
-                # print(df[['ts_code', 'end_date', 'ann_date']])
-                raise ParamError("%s%d年%d季度财报出现问题" % (sec_code, year, quarter))
-            return df.loc[quarter-1]
+            if self.error_level >= ERROR_L3:
+                raise ParamError("%s 无该期财报（%d年%d季度）" % (sec_code, year, quarter))
+            elif self.error_level == ERROR_L2:
+                print("%s 无该期周报（%d年%d季度）" % (sec_code, year, quarter))
+                if filter_query == {}:
+                    return pd.DataFrame(columns=['ts_code'], data=[[sec_code]])
+                else:
+                    return pd.DataFrame()
+            else:
+                if filter_query == {}:
+                    return pd.DataFrame(columns=['ts_code'], data=[[sec_code]])
+                else:
+                    return pd.DataFrame()
 
     def get_fina_data(self, sec_code: str, columns: List[str], **kwargs) -> pd.DataFrame:
         """
@@ -335,7 +497,8 @@ class DataClient(object):
         :param columns: 需要的财务数据属性
         :return:
         """
-        fina_data = []
+        fina_data = None
+        filters = kwargs.get("filters", {})
         end_dt = kwargs.get("end_dt", datetime.datetime.now().date().isoformat())
         year = kwargs.get("year", None)
         quarter = kwargs.get("quarter", None)
@@ -350,19 +513,31 @@ class DataClient(object):
         if 'ts_code' not in attrs:
             attrs['ts_code'] = 1
             t_columns.append('ts_code')
-        # 如果设置了year和quarter参数，则优先使用该参数
+        # 如果设置了year和quarter参数，则优先使用该参数，如果columns参数为None或长度为0，则返回所有指标
         if year is not None and quarter is not None:
             for sec_code in sec_codes:
-                res = self.get_fina_report(sec_code=sec_code, year=year, quarter=quarter)[t_columns].to_dict()
-                fina_data.append(res)
-            return pd.DataFrame(fina_data)
-        query = {"ann_date": {"$lte": to_date_str(to_date(end_dt), split='')}}
+                if columns is None or len(columns) == 0:
+                    res = self.get_fina_report(sec_code=sec_code, year=year, quarter=quarter, filters=filters)
+                else:
+                    res = self.get_fina_report(sec_code=sec_code, year=year, quarter=quarter, filters=filters)[t_columns]
+                # print(res)
+                if res.empty is True:
+                    continue
+                if fina_data is None:
+                    fina_data = res
+                else:
+                    fina_data = fina_data.append(res, ignore_index=True, sort=False)
+            return fina_data
+        query["ann_date"] = {"$lte": to_date_str(to_date(end_dt), split='')}
         # print(sec_codes)
         for sec_code in sec_codes:
             res = self.mongo_client['fina_db']['fina_'+sec_code[:6]].find(query, attrs).limit(1)
             # print(list(res))
-            fina_data.extend(list(res))
-        return pd.DataFrame(fina_data)
+            if fina_data is None:
+                fina_data = pd.DataFrame(list(res))
+            else:
+                fina_data = fina_data.append(pd.DataFrame(list(res)), sort=False)
+        return fina_data
         # 由于dataframe在动态改变大小时效率不高，所以以最后将dict列表一次性转化为dataframe
 
     def get_fina_date_range(self, sec_codes: str or List[str], year: int, quarter: int):
@@ -400,12 +575,17 @@ class DataClient(object):
                 dt_range.loc[sec_code, 'end_date'] = (datetime.datetime.now().date() - datetime.timedelta(days=1))\
                     .isoformat()
             else:
-                dt_range.loc[sec_code, 'start_date'] = chg_dt_format((df['ann_date'][quarter-1]))
-                dt_range.loc[sec_code, 'end_date'] = (datetime.datetime.strptime(df['ann_date'][quarter], "%Y%m%d")
-                                                      - datetime.timedelta(days=1)).isoformat()
+                # 先判断日期有效性
                 if dt_range.loc[sec_code, 'start_date'] > dt_range.loc[sec_code, 'end_date']:
-                    print("%s start_date: %s, end_date: %s"
+                    # print(df[['ann_date', 'end_date']])
+                    print("date range error: %s start_date: %s, end_date: %s"
                           % (sec_code, dt_range.loc[sec_code, 'start_date'], dt_range.loc[sec_code, 'end_date']))
+                    dt_range.loc[sec_code, 'start_date'] = None
+                    dt_range.loc[sec_code, 'end_date'] = None
+                else:
+                    dt_range.loc[sec_code, 'start_date'] = chg_dt_format((df['ann_date'][quarter - 1]))
+                    dt_range.loc[sec_code, 'end_date'] = (datetime.datetime.strptime(df['ann_date'][quarter], "%Y%m%d")
+                                                          - datetime.timedelta(days=1)).isoformat()
         return dt_range
 
     def get_price_list(self, dt: str, sec_codes: List[str], price_type):
@@ -496,6 +676,15 @@ class DataClient(object):
         for sec_code in sec_codes:
             res.loc[sec_code, 'ps'] = self.get_ps(dt=dt, sec_code=sec_code)
         return res
+
+    def get_sec_pool(self, sec_pool: str or List[str], start_date: datetime.date):
+        if isinstance(sec_pool, six.string_types) and sec_pool in self.index_basic()['ts_code'].tolist():
+            return self.index_weight(
+                index_code=sec_pool, trade_date=start_date)['con_code'].tolist()
+        elif isinstance(sec_pool, list):
+            return sec_pool
+        else:
+            raise ParamError("sec_pool error")
 
     def __del__(self):
         self.cursor.close()

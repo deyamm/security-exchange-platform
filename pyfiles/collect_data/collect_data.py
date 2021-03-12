@@ -171,7 +171,7 @@ def get_cashflow_data():
 
 def get_stock_k(code: str, start_date=None, freq='D'):
     """
-    从tushare获取指定股票的k线数据并存入到Mysql数据库中，
+    从tushare获取指定股票的k线数据并存入到Mysql数据库中，在原先数据的基础上添加每日指标数据
     :param code: 股票代码
     :param start_date: 数据的起始日期
     :param freq: 数据频率，'D','W','M','Y'分别表示日、周、月、年
@@ -182,6 +182,15 @@ def get_stock_k(code: str, start_date=None, freq='D'):
     #
     df = ts.pro_bar(ts_code=code, start_date=start_date, adj='qfq', ma=[5, 10, 20, 30, 60, 120, 250],
                     factors=['tor', 'vr'], adjfactor=True)
+    if df is None:
+        return
+    if freq == 'D':
+        indicator_df = ts.pro_api().daily_basic(ts_code=code, start_date=start_date)
+        # print(indicator_df.drop(['ts_code', 'close', 'turnover_rate', 'volume_ratio'], axis=1))
+        if indicator_df is not None and len(indicator_df) > 0:
+            df = pd.merge(left=df, right=indicator_df.drop(['ts_code', 'close', 'turnover_rate', 'volume_ratio'], axis=1),
+                          on='trade_date', how='left')
+    # print(df.columns)
     df.to_sql(name=table_name, con=conn, if_exists='append', index=False,
               dtype={'trade_date': sa.DateTime()})
     #
@@ -215,10 +224,11 @@ def stock_dk():
     """
     ts.set_token(token="92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947")
     pro = ts.pro_api()
-    data = pro.stock_basic(list_status='L', exchange="SZSE", fields='ts_code,symbol,name,list_date')
+    data = pro.stock_basic(list_status='D', exchange="SSE", fields='ts_code,symbol,name,list_date')
     #
-    start_index = 2150
-    for i in range(start_index, start_index + 150):
+    start_index = 0
+    # start_index = data['ts_code'].tolist().index('605179.SH') + 1
+    for i in range(start_index, start_index + 300):
         code = data['ts_code'][i]
         start_date = data['list_date'][i]
         print(code + " start")
@@ -273,7 +283,9 @@ def get_backup_dk():
         print(code + ' store completely')
         time.sleep(0.5)
 
+
 if __name__ == '__main__':
     ts.set_token('92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947')
     # get_sw_index()
-    get_fina_data()
+    # get_fina_data()
+    stock_dk()

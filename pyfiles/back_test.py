@@ -20,9 +20,10 @@ class BackTest(object):
 
     def back_test(self):
         # 初始化策略信息
-        strategy = SingleIndicator(self.kwargs)
+        strategy = SingleIndicator()
         account = strategy.account
         g = strategy.g
+        data_client = strategy.data_client
         #
         start_date = account.run_paras["start_date"]
         end_date = account.run_paras["end_date"]
@@ -99,9 +100,21 @@ def test():
 
 
 if __name__ == '__main__':
+    data_client = DataClient()
     # BackTest().back_test()
     # test()
     # print(os.path.dirname(os.path.abspath(__file__)))
-    rate = SingleIndicator(data_client=DataClient(), account=AccountInfo(), g=GlobalVariable(),
-                           start_dt='2019-03-01', end_dt='2019-04-01', sec_pool=['000661.SZ'], indicator='roe') \
-        .back_test().period_profit_rate()
+    # rate = SingleIndicator(data_client=DataClient(), account=AccountInfo(), g=GlobalVariable(),
+    #                        start_dt='2019-03-01', end_dt='2019-04-01', sec_pool=['000661.SZ'], indicator='roe') \
+    #     .back_test().period_profit_rate()
+    # print(chg_dt('2019-03-01', 20, 'back', is_trade_day=True))
+    # res1 = SingleIndicator(start_dt='2019-04-13', end_dt='2019-08-29', sec_pool=['000001.SZ'], echo_info=1,
+    #                        indicator='roe', first_in=1999892.1).back_test().period_profit_rate()/100
+    # res2 = DataClient().get_profit_rate(sec_code='000001.SZ', start_dt='2019-04-13', end_dt='2019-08-29', by='price')
+    # print(res1)
+    # print(res2)
+    dt = data_client.get_fina_date_range(sec_codes=['002252.SZ'], quarter=1, year=2018)
+    rate = data_client.get_profit_rate(sec_code='002252.SZ', start_dt=to_date_str(dt.loc['002252.SZ', 'start_date']),
+                                       end_dt=to_date_str(dt.loc['002252.SZ', 'end_date']))
+    print(dt)
+    print(rate)

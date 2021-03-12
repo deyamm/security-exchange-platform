@@ -52,8 +52,8 @@ class TurtleStrategy(Strategy):
         for sec_code in self.g.sec_pool:
             if self.data_client.is_trade(sec_code=sec_code, dt=to_date_str(self.account.current_date)):
                 ma = self.data_client.get_ma(self.g.benchmark_days, to_date_str(self.account.previous_date), sec_code, 'D')
-                price = self.data_client.get_price(to_date_str(self.account.previous_date), sec_code, 'close')
-                operate_price = self.data_client.get_price(to_date_str(self.account.current_date), sec_code, 'open')
+                price = self.data_client.get_price(to_date_str(self.account.previous_date), sec_code, 'close', 'last')
+                operate_price = self.data_client.get_price(to_date_str(self.account.current_date), sec_code, 'open', 'last')
                 # print("证券代码：%s, 当前价格：%f， 前一天20天均线：%f。" % (code, price, ma))
                 # 买入
                 if price > ma:

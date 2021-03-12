@@ -15,3 +15,7 @@ class MoneyError(Exception):
 
 class ParamError(Exception):
     pass
+
+
+class SQLError(Exception):
+    pass

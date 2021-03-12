@@ -28,6 +28,7 @@ class SingleIndicator(Strategy):
         self.g = GlobalVariable()
         # 设置参数
         self.kwargs = kwargs
+        self.backtest_params = dict()
         # 初始化策略
         self.initialize()
 
@@ -44,9 +45,11 @@ class SingleIndicator(Strategy):
         # self.g.sec_pool = ['000001.SZ', '000002.SZ', '000004.SZ', '000005.SZ', '000006.SZ',
         #                    '000007.SZ', '000008.SZ', '000009.SZ', '000010.SZ', '000011.SZ']
         self.g.N = min(self.kwargs.get("max_position_num", 5), len(self.g.sec_pool))  # 持仓个数
-        self.g.indicator = self.kwargs.get("indicator", 'eps')
+        self.g.indicator = self.kwargs.get("indicator", None)
         # 调仓周期，限调用handle_data函数的间隔
         self.g.period = self.kwargs.get("period", 20)
+        # 回测过程中的参数
+        self.backtest_params['echo_info'] = self.kwargs.get("echo_info", 1)
 
     def set_variables(self):
         # 设置基准指数
@@ -66,7 +69,7 @@ class SingleIndicator(Strategy):
         previous_date = self.account.previous_date
         current_date = self.account.current_date
         # 卖出所有持仓
-        self.account.clear_position()
+        self.account.clear_position(echo_info=self.backtest_params['echo_info'])
         # 获取pe数据
         # indicator_df = self.data_client.get_pe_list(dt=to_date_str(previous_date), sec_codes=self.g.sec_pool,
         #                                        pe_type=['S', 'T'])
@@ -80,14 +83,16 @@ class SingleIndicator(Strategy):
         # print(target)
         for sec_code in target:
             if self.data_client.is_trade(sec_code=sec_code, dt=to_date_str(current_date)):
-                price = self.data_client.get_price(dt=to_date_str(current_date), sec_code=sec_code, price_type='open')
+                price = self.data_client.get_price(dt=to_date_str(current_date), sec_code=sec_code, price_type='open',
+                                                   not_exist='last')
                 position = self.account.has_position(sec_code=sec_code)
                 if position is None:
                     cash = self.account.portfolio.inout_cash
                 else:
                     cash = position.available_cash
                 order(account=self.account, g=self.g, sec_code=sec_code, price=price,
-                      amount=cal_stock_amount(price=price, cash=cash), side='B')
+                      amount=cal_stock_amount(price=price, cash=cash), side='B',
+                      echo_info=self.backtest_params['echo_info'])
         return
 
     def after_trade_end(self):
@@ -106,4 +111,3 @@ class SingleIndicator(Strategy):
         # 股池中各支股票在调仓日的收盘价
         prices = self.data_client.get_price_list(to_date_str(adjust_dt), self.g.sec_pool, 'open')
         # 获取各个股票在调仓日3种市盈率对应的3种EPS
-        return
