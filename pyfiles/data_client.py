@@ -161,6 +161,32 @@ class DataClient(object):
             return to_date_str(dates[1].date())
         return to_date_str(dates[0].date())
 
+    def init_start_trade_date(self, start_dt: str, end_dt: str):
+        """
+        在回测开始前获取第一次交易的日期，包括第一个交易日以及该交易日前的最后一个交易日
+        :param start_dt: 回测的开始日期
+        :param end_dt: 回测的结束日期
+        :return:
+        """
+        warnings.filterwarnings("ignore")
+        # 以开始日期之后的第一个交易日为当前日期
+        current_dt = self.trade_cal.loc[start_dt: end_dt][self.trade_cal['is_open'] == 1]
+        current_date = to_date(current_dt.index[0])
+        # 以开始日期之前的最后一个交易日为前一个日期
+        previous_dt = self.trade_cal.loc[: start_dt][self.trade_cal['is_open'] == 1]
+        previous_date = to_date(previous_dt.index[-1])
+        #
+        return current_date, previous_date
+
+    def get_sec_pool(self, sec_pool: str or List[str], start_date: datetime.date):
+        if isinstance(sec_pool, six.string_types) and sec_pool in self.index_basic()['ts_code'].tolist():
+            return self.index_weight(
+                index_code=sec_pool, trade_date=start_date)['con_code'].tolist()
+        elif isinstance(sec_pool, list):
+            return sec_pool
+        else:
+            raise ParamError("sec_pool error")
+
     def get_k_data(self, dt: str, sec_codes: List[str], columns: str or List[str], fq: str = 'D', **kwargs):
         """
         :param dt:
@@ -366,31 +392,6 @@ class DataClient(object):
         else:
             raise ParamError("param error(price/pct)")
 
-    def init_start_trade_date(self, start_dt: str, end_dt: str):
-        """
-        在回测开始前获取第一次交易的日期，包括第一个交易日以及该交易日前的最后一个交易日
-        :param start_dt: 回测的开始日期
-        :param end_dt: 回测的结束日期
-        :return:
-        """
-        warnings.filterwarnings("ignore")
-        # 以开始日期之后的第一个交易日为当前日期
-        current_dt = self.trade_cal.loc[start_dt: end_dt][self.trade_cal['is_open'] == 1]
-        current_date = to_date(current_dt.index[0])
-        # 以开始日期之前的最后一个交易日为前一个日期
-        previous_dt = self.trade_cal.loc[: start_dt][self.trade_cal['is_open'] == 1]
-        previous_date = to_date(previous_dt.index[-1])
-        #
-        return current_date, previous_date
-
-    def is_marketday(self, date: datetime.date) -> int:
-        """
-        判断一个日期是否是交易日
-        :param date: 需要判断的日期
-        :return: 0/1
-        """
-        return self.trade_cal.loc[to_date_str(date)]['is_open']
-
     def get_index_data(self, index_code: str, columns: List[str], start_dt: str,
                        end_dt: str, freq: str) -> pd.DataFrame:
         """
@@ -409,6 +410,21 @@ class DataClient(object):
         data = pd.DataFrame(np.array(self.cursor.fetchall()), columns=[col[0] for col in self.cursor.description])
         return data[columns]
 
+    def get_price_list(self, dt: str, sec_codes: List[str], price_type):
+        """
+        获取一系列证券的价格
+        :param dt:
+        :param sec_codes:
+        :param price_type:
+        :return:
+        """
+        res = pd.DataFrame()
+        res.set_index(sec_codes)
+        for code in sec_codes:
+            price = self.get_price(dt=dt, sec_code=code, price_type=price_type)
+            res.loc[code][price_type] = price
+        return res
+
     def is_trade(self, sec_code: str, dt: str) -> bool:
         """
         判断指定证券在指定日期是否交易
@@ -423,6 +439,14 @@ class DataClient(object):
             return False
         else:
             return True
+
+    def is_marketday(self, date: datetime.date) -> int:
+        """
+        判断一个日期是否是交易日
+        :param date: 需要判断的日期
+        :return: 0/1
+        """
+        return self.trade_cal.loc[to_date_str(date)]['is_open']
 
     def get_fina_report(self, sec_code: str, year: int, quarter: int, **kwargs) -> pd.DataFrame:
         """
@@ -505,6 +529,7 @@ class DataClient(object):
         # 以列表以及字典的形式分别存储需要的财务数据属性，分别用于两个财务函数
         t_columns = []
         attrs = dict()
+        query = dict()
         for attr in columns:
             t_columns.append(attr)
             attrs[attr] = 1
@@ -588,21 +613,6 @@ class DataClient(object):
                                                           - datetime.timedelta(days=1)).isoformat()
         return dt_range
 
-    def get_price_list(self, dt: str, sec_codes: List[str], price_type):
-        """
-        获取一系列证券的价格
-        :param dt:
-        :param sec_codes:
-        :param price_type:
-        :return:
-        """
-        res = pd.DataFrame()
-        res.set_index(sec_codes)
-        for code in sec_codes:
-            price = self.get_price(dt=dt, sec_code=code, price_type=price_type)
-            res.loc[code][price_type] = price
-        return res
-
     def get_pe(self, dt: str, sec_code: str, pe_type: str) -> float:
         """
         获取指定个股的市盈率，市盈市的种类分为3种，静态、动态以及滚动市盈率，由dtype参数指定
@@ -639,7 +649,7 @@ class DataClient(object):
         else:
             raise ParamError("pe type error(S/D/T)")
 
-    def get_ps(self, dt: str, sec_code: str) -> float:
+    def get_pb(self, dt: str, sec_code: str) -> float:
         """
         计算指定证券在指定日期时的市净率ps，
         计算方法：当日的股价/最新一季财报每股净资产bps
@@ -669,22 +679,13 @@ class DataClient(object):
                 res.loc[code, 'pe_'+column] = self.get_pe(dt=dt, sec_code=code, pe_type=column)
         return res
 
-    def get_ps_list(self, dt: str, sec_codes: List[str]) -> pd.DataFrame:
+    def get_pb_list(self, dt: str, sec_codes: List[str]) -> pd.DataFrame:
         res = pd.DataFrame(columns=['sec_code', 'ps'])
         res['sec_code'] = sec_codes
         res.set_index('sec_code', inplace=True)
         for sec_code in sec_codes:
             res.loc[sec_code, 'ps'] = self.get_ps(dt=dt, sec_code=sec_code)
         return res
-
-    def get_sec_pool(self, sec_pool: str or List[str], start_date: datetime.date):
-        if isinstance(sec_pool, six.string_types) and sec_pool in self.index_basic()['ts_code'].tolist():
-            return self.index_weight(
-                index_code=sec_pool, trade_date=start_date)['con_code'].tolist()
-        elif isinstance(sec_pool, list):
-            return sec_pool
-        else:
-            raise ParamError("sec_pool error")
 
     def __del__(self):
         self.cursor.close()

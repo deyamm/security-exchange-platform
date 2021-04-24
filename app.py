@@ -34,6 +34,11 @@ def stock_info_page():
     return render_template('stock_info.html')
 
 
+@app.route('/multi_indicator.html')
+def multi_indicator_page():
+    return render_template("multi_indicator.html")
+
+
 @app.route('/quant_indicator.html')
 def quant_indicator_page():
     return render_template('quant_indicator.html')

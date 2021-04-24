@@ -62,26 +62,29 @@ class Server(object):
     def get_fina_data(self, sec_codes, **kwargs):
         start = time.clock()
         filters = kwargs.get("filters", {})
+        trade_date = tool.to_date(kwargs.get("trade_dt", '2019-12-31'))
         print("开始查询，筛选条件", filters)
+        print("查询日期：%s" % tool.to_date_str(trade_date))
         # print(filters)
         # sec_codes = ['000001.SZ', '000002.SZ']
         if filters.get("fina_indi") is not None:
-            fina_data = self.data_client.get_fina_list(sec_codes=sec_codes, columns=[], year=2020, quarter=1,
-                                                       filters=filters['fina_indi'])
+            fina_data = self.data_client.get_fina_list(sec_codes=sec_codes, columns=[], year=trade_date.year,
+                                                       quarter=tool.get_quarter(trade_date),filters=filters['fina_indi'])
         else:
-            fina_data = self.data_client.get_fina_list(sec_codes=sec_codes, columns=[], year=2020, quarter=1)
+            fina_data = self.data_client.get_fina_list(sec_codes=sec_codes, columns=[], year=trade_date.year,
+                                                       quarter=tool.get_quarter(trade_date))
         stock_basic = self.data_client.stock_basic(list_status=None)
         stock_basic.set_index(keys='ts_code', inplace=True)
         # print(fina_data[['ts_code', 'roe']])
         fina_data['name'] = stock_basic.loc[fina_data['ts_code'], 'name'].values
         # print(stock_basic)
         if filters.get("kline") is not None:
-            indicator = self.data_client.get_k_data(dt='2020-12-31', sec_codes=sec_codes,
+            indicator = self.data_client.get_k_data(dt=tool.to_date_str(trade_date), sec_codes=sec_codes,
                                                     columns=['ts_code', 'close', 'turnover_rate', 'pe', 'pb',
                                                              'total_mv', 'circ_mv'], filters=filters['kline'],
                                                     is_recur=False)
         else:
-            indicator = self.data_client.get_k_data(dt='2020-12-31', sec_codes=sec_codes,
+            indicator = self.data_client.get_k_data(dt=tool.to_date_str(trade_date), sec_codes=sec_codes,
                                                     columns=['ts_code', 'close', 'turnover_rate', 'pe', 'pb',
                                                              'total_mv', 'circ_mv'], is_recur=False)
         end = time.clock()
@@ -113,19 +116,22 @@ class Server(object):
         # print(options)
         filters = dict()
         sec_pool_code = '399300.SZ'
+        trade_dt = '2020-12-31'
         with open('./data/indicator_dict.json') as f:
             indi_dict = json.load(f)
         for option in options:
             words = option.split(' ')
             if words[0] == 'sec_pool':
                 sec_pool_code = words[1]
+            elif words[0] == 'trade_date':
+                trade_dt = words[1]
             else:
                 for key in indi_dict:
                     if indi_dict[key].get(words[0]) is not None:
                         self.add_option(key, words, filters)
                         break
         # print(filters)
-        sec_pool = self.data_client.index_weight(index_code=sec_pool_code)['con_code'].tolist()
+        sec_pool = self.data_client.index_weight(index_code=sec_pool_code, trade_date=tool.to_date(trade_dt))['con_code'].tolist()
         fina_data = self.get_fina_data(sec_pool, filters=filters)
         columns = fina_data.columns
         # print(fina_data)
@@ -138,8 +144,8 @@ class Server(object):
                 except KeyError:
                     continue
         '''
-        if len(fina_data) > 20:
-            return fina_data.loc[:20]
+        if len(fina_data) > 100:
+            return fina_data.loc[:100]
         else:
             return fina_data
 

@@ -117,9 +117,14 @@ def attr_explain(attr_name: str):
     return name_dict[attr_name]
 
 
-# 根据日期获取对应季度
+# 根据日期获取对应季度******************************8
 def get_quarter(date: datetime.date) -> int:
-    return math.ceil(date.month/3)
+    if isinstance(date, str):
+        return 0
+    elif isinstance(date, datetime.date):
+        return math.ceil(date.month/3)
+    else:
+        raise ParamError("传入日期参数类型错误")
 
 
 #
@@ -241,6 +246,13 @@ def get_mongo_symbol(symbol):
 
 
 def get_option_query(filters, sql_type: str = 'mysql'):
+    """
+    该函数用于将字典格式的筛选条件根据目标数据库来转化为其支持的条件语句，
+    其中mysql数据库返回的是字符串，mongoDB返回的是字典
+    :param filters:
+    :param sql_type:
+    :return:
+    """
     # print(filters, 'outer', sql_type)
     if sql_type == 'mysql':
         query = []

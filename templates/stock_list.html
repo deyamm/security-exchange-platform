@@ -16,35 +16,40 @@
             color: #999999;
         }
 
-        .stock-unit {
+        #list-content {
+            padding: 5px;
+        }
+
+        .stock-unit-lg {
             background: #ffffff;
             height: 100px;
             border-radius: 10px;
-            margin: 10px;
             box-shadow: 0 0 10px #2aabd2 inset;
         }
 
-        .stock-code {
+        .stock-code-lg {
             position: relative;
             top: 5px;
             font-size: 20px;
             color: #2aabd2;
         }
 
-        .stock-name {
+        .stock-name-lg {
             position: relative;
             font-size: 20px;
             color: #2aabd2;
         }
 
-        .stock-price {
+        .stock-price-lg {
             position: relative;
             font-size: 16px;
             color: #2aabd2;
+            margin: 0;
         }
 
         .stockinfo-div {
             float: left;
+            margin-right: 10px;
         }
 
         .indicator-div {
@@ -62,103 +67,68 @@
             color: #2aabd2;
         }
 
-        #dropdown-div {
-            position: absolute;
-            display: none;
-            background: #9acfea;
-            width: 200px;
-            border-radius: 20px;
-        }
-
-        #dropdown-close {
-            position: absolute;
-            right: 10px;
-            top: 10px;
-            outline: none;
-            border: none;
-            color: #d9edf7;
-            background: rgba(255, 255, 255, 0);
-        }
-
-        #dropdown-close:hover {
-            color: #0f0f0f;
-        }
-
-        .dropdown-buttons {
-            position: absolute;
-            top: 70px;
-            bottom: 10px;
-            right: 10px;
-        }
-
-        .button-style-1 {
+        .btn-style-1 {
             border: none;
             outline: none;
             color: #999999;
             background: rgba(0, 0, 0, 0);
         }
-        .button-style-1:hover {
+
+        .btn-style-1:hover {
             color: #265a88;
         }
 
-        #option-add-button {
-            float: left;
+        .page-btn {
+            outline: none;
+            margin: 3px;
+            height: 34px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            border-radius: 3px;
+        }
+
+
+        .page-btn:disabled {
+            background-color: #eeeeee;
+            color: #999999;
+        }
+
+
+        .selected-page-btn {
+            background-color: #337ab7;
+            color: #ffffff;
+            pointer-events: none;
+        }
+
+        #list-method-btn {
+            float: right;
             font-size: 20px;
             height: 50px;
         }
 
-        #option-search-button {
-            float: left;
-            font-size: 20px;
-            height: 50px;
+        #list-tbl {
+            margin-left: 20px;
         }
 
-        #option-area {
-            padding: 10px;
-        }
-        #option-set {
-            position: relative;
-        }
-        .option-unit {
-            float: left;
-            padding: 5px;
-            border: #265a88 1px solid ;
-            border-radius: 5px;
-            margin: 5px;
-        }
-        .option-unit select {
-            text-align: center;
-            text-align-last: center;
-            appearance: none;
-            width: 20px;
-            border: none;
-            background: rgba(0, 0, 0, 0);
-        }
-        .option-unit input {
-            width: 50px;
+        #list-tbl th, td {
+
         }
 
-        #option-select-div {
-            display: none;
+        #list-tbl button {
+
+        }
+
+        #page-turn-div {
             position: absolute;
-            top: 200px;
-            left: 800px;
-            width: 200px;
-            background: #d9edf7;
-            z-index: 2;
-            padding: 16px;
-        }
-        #option-select-div button {
-            font-size: 20px;
-        }
-        #option-select-div p {
-            font-size: 30px;
+            bottom: 100px;
         }
 
-        #option-select {
-            margin-bottom: 10px;
-            font-size: 16px;
-            height: 30px;
+        .pages-div {
+            float: left;
+        }
+
+        .jump-div {
+            float: right;
         }
 
     </style>
@@ -173,7 +143,7 @@
     <div class="row">
         <div id="search-div" class="col-sm-offset-3 col-sm-6">
             <input id="search-input" type="text" autocomplete="off" name="searchInput" placeholder="关键词">
-            <button class="glyphicon glyphicon-search button-style-1"></button>
+            <button class="glyphicon glyphicon-search btn-style-1"></button>
         </div>
     </div>
     <div id="option-area">
@@ -192,12 +162,14 @@
                     <option>自选</option>
                 </select>
             </div>
-            <!--div class="option-unit">
+            <div class="option-unit">
                 <label>日期</label>
-            </div-->
+                <input type="date" style="width: 125px" value="2019-12-31">
+            </div>
         </div>
-        <button id="option-search-button" class="glyphicon glyphicon-search button-style-1"></button>
-        <button id="option-add-button" class="glyphicon glyphicon-plus-sign button-style-1"></button>
+        <button id="option-search-btn" class="glyphicon glyphicon-search btn-style-1"></button>
+        <button id="option-add-btn" class="glyphicon glyphicon-plus-sign btn-style-1"></button>
+        <button id="list-method-btn" class="glyphicon glyphicon-th-large btn-style-1"></button>
         <div id="option-select-div" class="container">
             <div class="row" style="text-align: center">
                 <p class="col-sm-12">选择指标</p>
@@ -210,24 +182,30 @@
                 </select>
             </div>
             <div class="row">
-                <button id="select-ok-button" class="col-sm-offset-1 col-sm-5 glyphicon glyphicon-ok-circle button-style-1"></button>
-                <button id="select-cancel-button" class="col-sm-5 glyphicon glyphicon-remove-circle button-style-1"></button>
+                <button id="select-ok-btn"
+                        class="col-sm-offset-1 col-sm-5 glyphicon glyphicon-ok-circle btn-style-1"></button>
+                <button id="select-cancel-btn"
+                        class="col-sm-5 glyphicon glyphicon-remove-circle btn-style-1"></button>
             </div>
         </div>
     </div>
 </div>
 <div id="list-div">
     <div id="list-content"></div>
+    <div id="page-turn-div"></div>
     <div id="dropdown-div"></div>
 </div>
 <script src="/static/lib/jquery-1.11.0.min.js" type="text/javascript"></script>
 <script src="/static/echarts/dist/echarts.js" type="text/javascript"></script>
 <script src="/static/bootstrap3.3.7/js/bootstrap.js" type="text/javascript"></script>
+<script src="/static/js/variables.js" type="text/javascript"></script>
+<script src="/static/js/events.js" type="text/javascript"></script>
+<script src="/static/js/functions.js" type="text/javascript"></script>
 <script src="/static/js/classes.js" type="text/javascript"></script>
 <script type="text/javascript">
     //var myChart = echarts.init(document.getElementById('main'));
-    $("body").height(window.innerHeight);
-    $("#option-set").find("label").attr("indicator", "sec_pool");
+    let dataset = null;
+    stockListEvents();
     $.ajax({
         url: "/stock_pick/init",
         type: "POST",
@@ -237,51 +215,32 @@
         dataType: "json",
         success: function (data) {
             console.log(data);
+            dataset = data;
             // 将个股列表绘制到网页中，每支个股对应一个unit
-            for (let i = 0; i < data.length; i++) {
-                $("#list-content").append(new StockUnit(data[i]).createPanel());
-            }
+            new StockDetail(data).createPanel();
+            // let tbl = new TabularStock(dataset).createPanel();
+            // document.getElementById("list-content").append(tbl);
         }
     });
 
     let indicatorDict = new IndicatorDict();
 
-    $("#option-add-button").click(function(){
-        //console.log("click");
-        let selectDiv = document.getElementById("option-select-div");
-        $(selectDiv).css("display", "block");
-    });
-
-    $("#select-ok-button").click(function(){
-        //let selectDiv = document.getElementById("option-select-div");
-        $("#option-select-div").css("display", "none");
-        let optionName = $("#option-select").val();
-        //console.log(optionName);
-        //let optionSet = document.getElementById("option-set");
-        $("#option-set").append(new OptionUnit(optionName).createPanel());
-    });
-
-    $("#select-cancel-button").click(function(){
-        let selectDiv = document.getElementById("option-select-div");
-        $(selectDiv).css("display", "none");
-    });
-
-    $("#option-search-button").click(function(){
+    $("#option-search-btn").click(function () {
         //console.log("search");
         let optionSet = document.getElementById("option-set");
         let optionUnits = $(optionSet).children();
         let options = [];
         //console.log(optionUnits);
-        for(let i = 0; i < optionUnits.length; i++){
+        for (let i = 0; i < optionUnits.length; i++) {
             //console.log($(optionUnits[i]).children());
             let children = $(optionUnits[i]).children();
-            if(i === 0){
+            if (i <= 1) {
                 options.push($(children[0]).attr("indicator") + " " + $(children[1]).val());
-            }else{
+            } else {
                 options.push($(children[0]).attr("indicator") + " " + $(children[1]).val() + " " + $(children[2]).val());
             }
         }
-        console.log(options);
+        //console.log(options);
         $.ajax({
             url: "/stock_pick/search",
             type: "POST",
@@ -291,16 +250,21 @@
             dataType: "json",
             success: function (data) {
                 console.log(data);
-                let listContent = document.getElementById("list-content");
-                while(listContent.hasChildNodes()){
-                    listContent.removeChild(listContent.firstChild);
-                }
-                for (let i = 0; i < data.length; i++) {
-                    $("#list-content").append(new StockUnit(data[i]).createPanel());
+                dataset = data;
+                removeChild("list-content");
+                let listMethod = $("#list-method-btn").attr("list-method");
+                if (listMethod == LIST_LARGE) {
+                    new StockDetail(data).createPanel();
+                } else if (listMethod == LIST_SMALL) {
+                    document.getElementById("list-content").append(new TabularStock(data).createPanel());
+                } else {
+                    console.log(typeof (listMethod));
+                    alert("未知排列方式： " + listMethod);
                 }
             }
         });
     });
+
 </script>
 </body>
 </html>

@@ -17,6 +17,10 @@ import os
 
 
 class TradeLog(object):
+    """
+    该类用于记录交易过程信息，包括买入、卖出等内容，并可以导出为文件；
+    交易记录有两种形式，一种为自然语言方式，另一种为dataframe实例。
+    """
 
     def __init__(self):
         self.logs = []
@@ -60,7 +64,7 @@ class GlobalVariable:
 
 class Position(object):
     """
-    持仓
+    持仓类，每一个实例代表一支股票的持仓
     """
     sec_code = None  # 标的代码
     price = 0  # 最新行情价格
