@@ -35,6 +35,7 @@ class UpdateDataClient(object):
         :return:
         """
         print(sec_code + " update start")
+        # 获取新的数据
         try:
             self.cursor.execute("select trade_date from stock.%s_daily" % sec_code[:6])
             dates = np.sort(np.array(self.cursor.fetchall()).ravel())
@@ -51,6 +52,7 @@ class UpdateDataClient(object):
         # print(start_dt)
         # print(end_dt)
         # print(df)
+        # 如果有新数据，则直接扩展到MySQL数据库中
         if df is not None:
             df.to_sql(name=sec_code[:6]+'_daily', con=self.sql_engine, if_exists='append', index=False,
                       dtype={'trade_date': sa.DateTime()})
@@ -59,6 +61,13 @@ class UpdateDataClient(object):
         print(sec_code + " update completely, %d lines updated" % len(df))
 
     def execute_query(self, client_num: int, query: str):
+        """
+        该成员方法用于执行本地数据库的查询语句，并将数据以适合的方式返回，
+        对于不同的数据库，该成员方法会分别调用相应的接口
+        :param client_num:
+        :param query:
+        :return:
+        """
         if client_num == 1:  # MySQLdb
             self.cursor.execute(query)
             data = np.array(self.cursor.fetchall())
@@ -93,6 +102,10 @@ def daily_update():
         # print(k_data)
         latest_adj_factor = k_data.loc[len(k_data)-1, 'adj_factor']
         # t = k_data[k_data['ma5'] == np.nan]
+        # 获取原表中数据的结束位置。
+        # 由于新添加的数据中，前一定数量的均值数据是缺失的，
+        # 再加上原表中同样有相同数量的缺失值，所以筛选出缺失的5日均值中，第5个位置的索引即是新添加数据开始的位置，
+        # 因此，原表数据的结束位置就可以确定
         old_data_index = k_data[np.isnan(k_data['ma5'].fillna(value=np.nan))]['ma5'].index.tolist()[4] - 1
         adjust_rate = k_data.loc[old_data_index, 'adj_factor'] / latest_adj_factor
         update_data(k_data, adjust_rate)
@@ -101,6 +114,12 @@ def daily_update():
 
 
 def update_data(k_data, adjust_rate):
+    """
+    更新复权数据，包括每天的价格、均值以及计算新加入数据的均值缺失值
+    :param k_data:
+    :param adjust_rate:
+    :return:
+    """
     flag = 0
     for j in range(len(k_data)):
         k_data.loc[j, 'change'] = float_precision(k_data.loc[j, 'change'], 2)

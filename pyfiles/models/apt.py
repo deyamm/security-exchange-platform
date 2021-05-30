@@ -7,6 +7,8 @@
         方法：
     3. 去除冗余因子
         方法：
+
+    问题：不同因子值的数值刻度不同，应想办法统一
 """
 from pyfiles.utils import *
 from pyfiles.strategies.single_indicator import SingleIndicator

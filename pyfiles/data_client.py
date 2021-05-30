@@ -34,7 +34,10 @@ class DataClient(object):
         # 建立连接
         self.connect = sql.connect(host=host, port=port, user=user, passwd=passwd, db=db, charset=charset)
         self.cursor = self.connect.cursor()
-        self.mongo_client = pymongo.MongoClient(host='localhost', port=27017)
+        # self.mongo_client = pymongo.MongoClient(host='localhost', port=27017)
+        # self.mongo_client = pymongo.MongoClient(host='localhost', port=27017, username='admin', password='qq16281091',
+        #                                         authSource='admin', authMechanism='SCRAM-SHA-256')
+        self.mongo_client = pymongo.MongoClient("mongodb://root:qq16281091@localhost/fina_db?authSource=admin")
         # 将整个交易日历存储下来
         query = "select * from basic_info.trade_cal"
         self.cursor.execute(query)

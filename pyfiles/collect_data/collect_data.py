@@ -27,10 +27,12 @@ def get_sw_index():
         print(indexes[i] + ' start')
         data, msg = swindex.get_index_daily(indexes[i], start_date='1999-12-30',
                                             end_date='2020-9-18')
+        # 设置dataframe列的顺序
         data = data[columns_order]
         data.rename(columns={'date': 'trade_date'}, inplace=True)
         indicator, mm = swindex.get_index_dailyindicator(indexes[i], start_date='1999-12-30',
                                                          end_date='2020-9-18', freq='D')
+        # 设置dataframe列的顺序
         indicator = indicator[['avg_float_mv', 'date', 'dividend_yield_ratio', 'float_mv',
                                'pb', 'pe', 'turn_rate', 'turnover_pct', 'vwap']]
         indicator.rename(columns={'date': 'trade_date'}, inplace=True)
@@ -51,12 +53,12 @@ def get_fina_data(attrs: List[str] = None):
 
     :return:
     """
-    client = pymongo.MongoClient(host='localhost', port=27017)
+    client = pymongo.MongoClient("mongodb://root:qq16281091@localhost/fina_db?authSource=admin")
     db = client['fina_db']
     pro = ts.pro_api()
-    data = pro.stock_basic(list_status='P', exchange="SSE", fields='ts_code,symbol,name,list_date')
+    data = pro.stock_basic(list_status='L', exchange="SSE", fields='ts_code,symbol,name,list_date')
     # 设置起始位置
-    # start_index = data['ts_code'].tolist().index('300380.SZ')+1
+    # start_index = data['ts_code'].tolist().index('600593.SH')+1
     start_index = 0
     # 当表还未创建时，判断对应表是否已存在
     if attrs is None and 'fina_'+data['ts_code'][start_index][:6] in db.collection_names():
@@ -177,7 +179,8 @@ def get_stock_k(code: str, start_date=None, freq='D'):
     :param freq: 数据频率，'D','W','M','Y'分别表示日、周、月、年
     :return:
     """
-    table_name = code[:6] + '_' + fq_trans(freq)
+    # table_name = code[:6] + '_' + fq_trans(freq)
+    table_name = 'stock_daily'
     conn = sa.create_engine("mysql+mysqldb://root:qq16281091@localhost:3306/stock?charset=utf8")
     #
     df = ts.pro_bar(ts_code=code, start_date=start_date, adj='qfq', ma=[5, 10, 20, 30, 60, 120, 250],
@@ -194,7 +197,7 @@ def get_stock_k(code: str, start_date=None, freq='D'):
     df.to_sql(name=table_name, con=conn, if_exists='append', index=False,
               dtype={'trade_date': sa.DateTime()})
     #
-    conn.execute("alter table " + table_name + " add primary key(trade_date);")
+    # conn.execute("alter table " + table_name + " add primary key(trade_date);")
 
 
 def get_index_k(code: str, start_date=None, freq='D'):
@@ -224,11 +227,12 @@ def stock_dk():
     """
     ts.set_token(token="92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947")
     pro = ts.pro_api()
-    data = pro.stock_basic(list_status='D', exchange="SSE", fields='ts_code,symbol,name,list_date')
+    data = pro.stock_basic(list_status='L', exchange="SSE", fields='ts_code,symbol,name,list_date')
     #
-    start_index = 0
-    # start_index = data['ts_code'].tolist().index('605179.SH') + 1
-    for i in range(start_index, start_index + 300):
+    start_index = 1700
+
+    # start_index = data['ts_code'].tolist().index('300936.SZ') + 1
+    for i in range(start_index, start_index + 200):
         code = data['ts_code'][i]
         start_date = data['list_date'][i]
         print(code + " start")
@@ -287,5 +291,5 @@ def get_backup_dk():
 if __name__ == '__main__':
     ts.set_token('92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947')
     # get_sw_index()
-    # get_fina_data()
-    stock_dk()
+    get_fina_data()
+    # stock_dk()

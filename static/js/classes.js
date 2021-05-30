@@ -61,12 +61,12 @@ function StockUnit(stockData) {
         for (let i = 0; i < buttons.length; i++) {
             $(buttons[i]).removeClass("glyphicon-chevron-up");
             $(buttons[i]).addClass("glyphicon-chevron-down");
-            $(buttons[i]).attr("status", 0);
+            $(buttons[i]).prop("status", 0);
         }
         let selectedB = document.getElementById(selectedId);
         $(selectedB).removeClass("glyphicon-chevron-down");
         $(selectedB).addClass("glyphicon-chevron-up");
-        $(selectedB).attr("status", 1);
+        $(selectedB).prop("status", 1);
     }
 }
 
@@ -142,14 +142,14 @@ function DropdownCheckbox(indicators, targetId, parentId) {
             if (this.listData.hasOwnProperty(key)) {
                 let li = document.createElement("li");
                 let input = document.createElement("input");
-                $(input).attr("data-value", key);
-                $(input).attr("value", this.listData[key]);
+                $(input).prop("data-value", key);
+                $(input).prop("value", this.listData[key]);
                 $(input).attr("type", "checkbox");
                 if (this.listStates[key] === 1) {
-                    $(input).attr("checked", "true");
+                    $(input).prop("checked", "true");
                 }
                 $(input).click(function () {
-                    options.self.updateCheckbox($(this).attr("data-value"));
+                    options.self.updateCheckbox($(this).prop("data-value"));
                 });
                 let span = document.createElement("span");
                 $(span).attr("title", this.listData[key]);
@@ -219,7 +219,7 @@ function OptionUnit(indicatorName) {
         let label = document.createElement("label");
         console.log(this.indicatorName);
         label.innerHTML = indicatorDict.getIndicatorName(this.indicatorName);
-        $(label).attr("indicator", this.indicatorName);
+        $(label).prop("indicator", this.indicatorName);
         let select = document.createElement("select");
         let sOptions = [">", "=", "<"];
         for (let i = 0; i < sOptions.length; i++) {
@@ -268,8 +268,8 @@ function TabularStock(dataset) {
             if (this.displayIndi[i] !== "name") {
                 let bt = document.createElement("button");
                 $(bt).addClass("btn-style-1 glyphicon glyphicon-sort sort-btn");
-                $(bt).attr("indicator", this.displayIndi[i]);
-                $(bt).attr("status", "0");
+                $(bt).prop("indicator", this.displayIndi[i]);
+                $(bt).prop("status", "0");
                 addBtnEvent(bt);
                 bt.self = this;
                 th.append(bt);
@@ -303,32 +303,32 @@ function TabularStock(dataset) {
     function addBtnEvent(btn) {
         $(btn).click(function () {
             let btn = $(this);
-            if (btn.attr("status") === "0") { // 初始状态转换为降序排列
-                btn.attr("status", "1");
+            if (btn.prop("status") === "0") { // 初始状态转换为降序排列
+                btn.prop("status", "1");
                 btn.removeClass("glyphicon-sort");
                 btn.addClass("glyphicon-sort-by-attributes-alt");
                 this.self.dataset.sort(function (x, y) {
-                    if (typeof (x[$(btn).attr("indicator")]) === "string") {
-                        return -x[$(btn).attr("indicator")].localeCompare(y[$(btn).attr("indicator")]);
+                    if (typeof (x[$(btn).prop("indicator")]) === "string") {
+                        return -x[$(btn).prop("indicator")].localeCompare(y[$(btn).prop("indicator")]);
                     }
-                    return -(x[$(btn).attr("indicator")] - y[$(btn).attr("indicator")]);
+                    return -(x[$(btn).prop("indicator")] - y[$(btn).prop("indicator")]);
                 })
-            } else if (btn.attr("status") === "1") { // 降序排列转换为升序排列
-                btn.attr("status", "2");
+            } else if (btn.prop("status") === "1") { // 降序排列转换为升序排列
+                btn.prop("status", "2");
                 btn.removeClass("glyphicon-sort-by-attributes-alt");
                 btn.addClass("glyphicon-sort-by-attributes");
                 this.self.dataset.sort(function (x, y) {
-                    if (typeof (x[$(btn).attr("indicator")]) === "string") {
-                        return x[$(btn).attr("indicator")].localeCompare(y[$(btn).attr("indicator")]);
+                    if (typeof (x[$(btn).prop("indicator")]) === "string") {
+                        return x[$(btn).prop("indicator")].localeCompare(y[$(btn).prop("indicator")]);
                     }
-                    return x[$(btn).attr("indicator")] - y[$(btn).attr("indicator")];
+                    return x[$(btn).prop("indicator")] - y[$(btn).prop("indicator")];
                 })
-            } else if (btn.attr("status") === "2") { // 升序排列转换为初始状态
-                btn.attr("status", "0");
+            } else if (btn.prop("status") === "2") { // 升序排列转换为初始状态
+                btn.prop("status", "0");
                 btn.removeClass("glyphicon-sort-by-attributes");
                 btn.addClass("glyphicon-sort");
             } else {
-                alert("未知状态： " + btn.attr("status"));
+                alert("未知状态： " + btn.prop("status"));
             }
             //console.log(this.self.dataset);
             this.self.updateTable();
@@ -388,7 +388,7 @@ function Indicator(indicator, value) {
         let indicatorDiv = document.createElement("div");
         let indicatorName = document.createElement("p");
         let indicatorValue = document.createElement("p");
-        $(indicatorValue).attr("value", this.value);
+        $(indicatorValue).prop("value", this.value);
         indicatorName.innerHTML = this.indicator;
         $(indicatorValue).attr("title", this.value);
         $(indicatorDiv).addClass("indicator-div");
@@ -396,7 +396,7 @@ function Indicator(indicator, value) {
         //indicatorValue.innerHTML = this.value;
         $(indicatorValue).addClass("fa fa-check-circle indicator-value");
         $(indicatorValue).click(function () {
-            console.log($(this).attr("value"));
+            console.log($(this).prop("value"));
         });
         $(indicatorDiv).append(indicatorName);
         $(indicatorDiv).append(indicatorValue);
@@ -428,10 +428,10 @@ function PageTurn(params) {
         let pageDown = document.createElement("button");
         pageDown.innerHTML = "<";
         $(pageDown).attr("id", "pagedown-btn");
-        $(pageDown).attr("page-num", "down");
+        $(pageDown).prop("page-num", "down");
         $(pageDown).addClass("page-btn");
         if (curPage === 1) {
-            $(pageDown).attr("disabled", true);
+            $(pageDown).prop("disabled", true);
         }
         $(pagesDiv).append(pageDown);
         // 分页按钮
@@ -454,7 +454,7 @@ function PageTurn(params) {
             }
             let pageBtn = document.createElement("button");
             pageBtn.innerHTML = (i + 1).toString();
-            $(pageBtn).attr("page-num", (i + 1).toString());
+            $(pageBtn).prop("page-num", (i + 1).toString());
             $(pageBtn).addClass("page-btn spec-pages");
             $(pageBtn).css("width", "34px");
             if (i === 0) {
@@ -467,10 +467,10 @@ function PageTurn(params) {
         let pageUp = document.createElement("button");
         pageUp.innerHTML = ">";
         $(pageUp).attr("id", "pageup-btn");
-        $(pageUp).attr("page-num", "up");
+        $(pageUp).prop("page-num", "up");
         $(pageUp).addClass("page-btn");
         if (curPage === pages) {
-            $(pageUp).attr("disabled", true);
+            $(pageUp).prop("disabled", true);
         }
         $(pagesDiv).append(pageUp);
         //
@@ -491,7 +491,7 @@ function PageTurn(params) {
         //
         let btn = document.createElement("button");
         $(btn).attr("id", "jump-btn");
-        $(btn).attr("page-num", "jump");
+        $(btn).prop("page-num", "jump");
         btn.innerHTML = "跳转";
         $(btn).addClass("page-btn");
         $(jumpDiv).append(btn);
@@ -508,7 +508,7 @@ function PageTurn(params) {
     function pageBtnEvent() {
         //$(".page-btn").click(function (){
         $(".pages-div, .jump-div").on("click", ".page-btn", function () {
-            let pageNum = $(this).attr("page-num");
+            let pageNum = $(this).prop("page-num");
             console.log(pageNum);
             let prePage = curPage;
             if (pageNum === "down") { // 上一页按钮
@@ -528,7 +528,7 @@ function PageTurn(params) {
             }
             let pageBtns = document.getElementsByClassName("spec-pages");
             for (let i = 0; i < pageBtns.length; i++) {
-                let t = $(pageBtns[i]).attr("page-num");
+                let t = $(pageBtns[i]).prop("page-num");
                 if (t === prePage.toString()) {
                     $(pageBtns[i]).removeClass("selected-page-btn");
                 }
@@ -536,14 +536,14 @@ function PageTurn(params) {
             //调整在页面中显示的按钮
             updateSpecBtns(curPage);
             if (curPage === 1) {
-                $("#pagedown-btn").attr("disabled", true);
-                $("#pageup-btn").attr("disabled", false);
+                $("#pagedown-btn").prop("disabled", true);
+                $("#pageup-btn").prop("disabled", false);
             } else if (curPage > 1 && curPage < pages) {
-                $("#pagedown-btn").attr("disabled", false);
-                $("#pageup-btn").attr("disabled", false);
+                $("#pagedown-btn").prop("disabled", false);
+                $("#pageup-btn").prop("disabled", false);
             } else if (curPage === pages) {
-                $("#pagedown-btn").attr("disabled", false);
-                $("#pageup-btn").attr("disabled", true);
+                $("#pagedown-btn").prop("disabled", false);
+                $("#pageup-btn").prop("disabled", true);
             }
             $(".jump-div").find("label")[1].innerHTML = `第${curPage}页/共${pages}页`;
             updateMethod((curPage - 1) * 20, curPage * 20);
@@ -584,7 +584,7 @@ function PageTurn(params) {
         for (let i = 1; i <= pages; i++) {
             let pageBtn = document.createElement("button");
             pageBtn.innerHTML = i.toString();
-            $(pageBtn).attr("page-num", i.toString());
+            $(pageBtn).prop("page-num", i.toString());
             $(pageBtn).addClass("page-btn spec-pages");
             $(pageBtn).css("width", "34px");
             if (i === curPage) {
