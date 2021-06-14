@@ -8,12 +8,17 @@
     <link rel="stylesheet" type="text/css" href="/static/font-awesome/css/font-awesome.css">
     <title>多因子</title>
     <style type="text/css">
-        #option-div label {
+        #option-div p {
             font-size: 20px;
         }
 
-        #selected-unit {
+        .selected-unit {
+            float: left;
+            margin: 3px;
+        }
 
+        .selected-unit label {
+            font-size: 13px;
         }
 
         #stock-pool-div {
@@ -32,6 +37,7 @@
             left: 50px;
             width: 450px;
             z-index: 1;
+            display: none;
         }
 
         #indicator-list {
@@ -42,6 +48,7 @@
             left: 50px;
             width: 450px;
             z-index: 1;
+            display: none;
         }
 
         .list-unit {
@@ -63,8 +70,98 @@
             padding: 5px;
             cursor: pointer;
         }
+
         .list-unit ul li:hover {
             color: #999999;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+        }
+
+        #sec-div {
+            position: relative;
+            float: left;
+            width: 40%;
+            height: 100%;
+            border: #000 1px solid;
+        }
+
+        #backtest-div {
+            position: relative;
+            float: right;
+            width: 60%;
+            height: 100%;
+            border: #000 1px solid;
+        }
+
+        #gen-seclist-btn {
+            font-size: 20px;
+        }
+
+        #sec-list {
+            position: relative;
+            float: left;
+            width: 80%;
+            height: 100%;
+            border: #999999 1px solid;
+            overflow: auto;
+            padding-left: 30px;
+        }
+
+        #btns-list {
+            position: relative;
+            float: right;
+            width: 20%;
+            height: 100%;
+            border: #999999 1px solid;
+            text-align: center;
+            padding: 10px;
+        }
+
+        #backtest-date{
+            position: relative;
+        }
+
+        #backtest-date input{
+            width: 100%;
+        }
+
+        #backtest-btn {
+
+        }
+
+        #set-window {
+            position: relative;
+            height: 10%;
+            width: 100%;
+            border: #999999 1px solid;
+        }
+
+        #backtest-window {
+            position: relative;
+            height: 70%;
+            width: 100%;
+            border: #999999 1px solid;
+        }
+
+        #metrix-window {
+            position: relative;
+            height: 20%;
+            width: 100%;
+            border: #999999 1px solid;
+        }
+
+
+        .sec-unit {
+            padding: 5px;
+        }
+
+        .sec-unit label{
+            margin-right: 20px;
+            font-size: 16px;
         }
 
     </style>
@@ -77,204 +174,136 @@
 </div>
 <div id="option-div" class="row">
     <div id="stock-pool-div" class="col-sm-5">
-        <label>股池</label>
+        <p>股池</p>
         <div id="selected-pool"></div>
         <button id="add-pool-btn" class="btn-style-1 glyphicon glyphicon-plus"></button>
         <div id="pool-list"></div>
     </div>
     <div id="indicator-div" class="col-sm-6">
-        <label>指标因子</label>
+        <p>指标因子</p>
         <div id="selected-indicator"></div>
         <button id="add-indicator-btn" class="btn-style-1 glyphicon glyphicon-plus"></button>
         <div id="indicator-list"></div>
     </div>
 </div>
 <div id="list-div">
-    <div id="sec-list"></div>
-    <div id="backtest-div"></div>
+    <div id="sec-div">
+        <div id="sec-list"></div>
+        <div id="btns-list">
+            <button id="gen-seclist-btn">生成股票列表</button>
+            <div id="backtest-date">
+                <h3>设置回测日期</h3>
+                <h4>开始日期</h4>
+                <input type="date" id="start-date">
+                <h4>结束日期</h4>
+                <input type="date" id="end-date">
+            </div>
+            <button id="backtest-btn">回测</button>
+        </div>
+    </div>
+    <div id="backtest-div">
+        <div id="set-window"></div>
+        <div id="backtest-window"></div>
+        <div id="metrix-window"></div>
+    </div>
 </div>
 <script src="/static/lib/jquery-1.11.0.min.js" type="text/javascript"></script>
 <script src="/static/echarts/dist/echarts.js" type="text/javascript"></script>
 <script src="/static/bootstrap3.3.7/js/bootstrap.js" type="text/javascript"></script>
-<script src="/static/js/variables.js" type="text/javascript"></script>
-<script src="/static/js/events.js" type="text/javascript"></script>
-<script src="/static/js/functions.js" type="text/javascript"></script>
-<script src="/static/js/classes.js" type="text/javascript"></script>
-<script type="text/javascript">
+<script type="module">
+    import {stockPoolTree, indicatorTree} from "../static/js/variables.js";
+    import {StockPoolList, IndicatorList} from "../static/js/classes.js";
+
     $("body").height(window.innerHeight);
 
-    let stockPoolTree = {
-        'broad_index': {
-            'name': '交易所指数',
-            '000001.SH': '上证指数',
-            '399001.SZ': '深证指数',
-            '399005.SZ': '中小板指',
-            '399006.SZ': '创业板指',
-            '000016.SH': '上证50',
-            '399300.SZ': '沪深300',
-            '000905.SH': '中证500',
-            '000852.SH': '中证1000'
-        },
-        'sw_index':{
-            'name': '申万指数',
-            '801010': '农林牧渔',
-            '801020': '采掘',
-            '801030': '化工',
-            '801040': '钢铁'
-        },
-    };
+    let selectedSec = {};
 
-    let indicatorTree = {
-        'fina_indicator': {
-            'name': '财务指标',
-            'eps': {
-                'name': '基本每股收益'
-            },
-            'roe': {
-                'name': '净资产收益率'
-            },
-            'revenue_ps': {
-                'name': '每股营业收入'
-            },
-            'ebit_of_gr': {
-                'name': '息税前利润/营业总收入'
-            },
-            'fcff_ps': {
-                'name': '每股企业自由现金流量'
-            }
-        },
-        'tech_indicator': {
-            'name': '技术指标',
-            'ma': {
-                'name': '均线',
-                'ma5': '5日均线',
-                'ma10': '10日均线',
-                'ma20': '20日均线',
-                'ma30': '30日均线',
-                'ma60': '60日均线',
-                'ma120': '120日均线',
-                'ma250': '250日均线'
-            },
-            'captial': {
-                'name': '资金流入'
-            },
-            'MACD': {
-                'name': 'MACD'
-            },
-            'KDJ': {
-                'name': 'KDJ'
-            },
-            'RSI': {
-                'name': 'RSI'
-            }
-        },
-        'daily_indicator': {
-            'name': '每日指标',
-            'total_mv': {
-                'name': '总市值'
-            },
-            'circ_mv': {
-                'name': '流通市值'
-            },
-            'volume_ratio': {
-                'name': '量比'
-            }
+    //$("#pool-list").append(new StockPoolList("pool-list", stockPoolTree).createPanel());
+    //$("#indicat|or-list").append(new IndicatorList("indicator-list", indicatorTree, "selected-indicator").createPanel());
+    new StockPoolList("pool-list", stockPoolTree).createPanel();
+    new IndicatorList("indicator-list", indicatorTree, "selected-indicator").createPanel();
 
+    $("#add-pool-btn").click(function () {
+        $("#pool-list").css("display", "block");
+    });
+    $("#add-indicator-btn").click(function () {
+        $("#indicator-list").css("display", "block");
+    });
+
+    $("#gen-seclist-btn").click(function (){
+        let selectedPool = [];
+        let selectedIndicator = [];
+        let poolUnits = $("#selected-pool").children();
+        let indicatorUnits = $("#selected-indicator").children();
+        for(let i = 0; i < poolUnits.length; i++){
+            selectedPool.push($($(poolUnits[i]).children()[0]).prop("indexCode"));
         }
-    };
-
-    $("#pool-list").append(new StockPoolList("pool-list", stockPoolTree).createPanel());
-    $("#indicator-list").append(new IndicatorList("indicator-list", indicatorTree, "selected-indicator").createPanel());
-
-    function IndicatorList(containerId, indicatorTree, targetId){
-        let container = $(`#${containerId}`);
-        let target = $(`#${targetId}`);
-        this.indicatorTree = indicatorTree;
-
-        IndicatorList.prototype.createPanel = function(){
-            for(let item in this.indicatorTree){
-                if(this.indicatorTree.hasOwnProperty(item)){
-                    // 获取该item下的所有指标
-                    let indicators = this.indicatorTree[item];
-                    // 放置该item的容器
-                    let div = document.createElement("div");
-                    $(div).addClass("list-unit");
-                    // 该item的标题
-                    let titleP = document.createElement("p");
-                    titleP.innerHTML = indicators['name'];
-                    $(div).append(titleP);
-                    delete indicators['name']; // 注意此处删除会影响到原先的对象
-                    // 添加该item下的各个指标
-                    let ul = document.createElement("ul");
-                    for(let indicator in indicators){
-                        if(indicators.hasOwnProperty(indicator)){
-                            let li = document.createElement("li");
-                            // 获取该指标的具体内容
-                            let indicatorInfo = indicators[indicator];
-                            li.innerHTML = indicatorInfo['name'];
-                            $(li).prop("indicator", indicator);
-                            delete indicatorInfo['name'];
-                            addLiEvent(li, indicatorInfo);
-                            $(ul).append(li);
-                        }
-                    }
-                    $(div).append(ul);
-                    $(container).append(div);
-                }
+        for(let i = 0; i < indicatorUnits.length; i++){
+            selectedIndicator.push($($(indicatorUnits[i]).children()[0]).prop("indicator"));
+        }
+        //console.log(selectedPool);
+        //console.log(selectedIndicator);
+        $.ajax({
+            url: "/data/sec_pool",
+            type: "POST",
+            data: JSON.stringify({
+                pool_list: selectedPool
+            }),
+            dataType: "json",
+            success: function (data) {
+                let secPool = data;
+                console.log(secPool);
+                new StockList(secPool, "sec-list").createPanel();
             }
-        };
+        });
+    });
+    function StockList(secPool, containerId){
+        this.secPool = secPool;
+        let container = $(`#${containerId}`);
 
-        function addLiEvent(li, childItems){
-            $(li).click(function(){
+        StockList.prototype.createPanel = function(){
+            for(let i = 0; i < this.secPool.length; i++){
+                let sec = this.secPool[i];
                 let div = document.createElement("div");
-                $(div).addClass("selected-unit");
-                let label = document.createElement("label");
-                $(label).prop("indicator", $(this).prop("indicator"));
-                label.innerHTML = li.innerHTML;
-            })
-        }
-    }
-
-    function StockPoolList(containerId, stockPoolTree){
-        let container = $(`#${containerId}`);
-        this.stockPoolTree = stockPoolTree;
-
-        StockPoolList.prototype.createPanel = function(){
-            for(let item in this.stockPoolTree){
-                if(this.stockPoolTree.hasOwnProperty(item)){
-                    // 获取该item下的所有指标
-                    let indexCodes = this.stockPoolTree[item];
-                    // 放置该item的容器
-                    let div = document.createElement("div");
-                    $(div).addClass("list-unit");
-                    // 该item的标题
-                    let titleP = document.createElement("p");
-                    titleP.innerHTML = indexCodes['name'];
-                    $(div).append(titleP);
-                    delete indexCodes['name']; // 注意此处删除会影响到原先的对象
-                    // 添加该item下的各个指标
-                    let ul = document.createElement("ul");
-                    for(let indexCode in indexCodes){
-                        if(indexCodes.hasOwnProperty(indexCode)){
-                            let li = document.createElement("li");
-                            // 获取该指标的具体内容
-                            li.innerHTML = indexCodes[indexCode];
-                            $(li).prop("indexCode", indexCode);
-                            //delete indicatorInfo['name'];
-                            addLiEvent(li);
-                            $(ul).append(li);
+                $(div).addClass("sec-unit");
+                let code = document.createElement("label");
+                code.innerHTML = sec['ts_code'];
+                let name = document.createElement("label");
+                name.innerHTML = sec['name'];
+                let btn = document.createElement("button");
+                $(btn).addClass("btn-style-1 glyphicon glyphicon-plus");
+                $(btn).prop("secCode", sec['ts_code']);
+                $(btn).prop("secName", sec['name']);
+                $(btn).prop("added", 0);
+                $(btn).click(function(){
+                    console.log($(this).prop("secCode"));
+                    if ($(this).prop("added") === 0){
+                        if (!selectedSec.hasOwnProperty($(this).prop("secCode"))){
+                            selectedSec[$(this).prop("secCode")] = $(this).prop("secName");
                         }
+                        $(this).prop("added", 1);
+                        $(this).removeClass("glyphicon-plus");
+                        $(this).addClass("glyphicon-minus");
+                    }else if($(this).prop("added") === 1){
+                        if(selectedSec.hasOwnProperty($(this).prop("secCode"))){
+                            delete selectedSec[$(this).prop("secCode")];
+                        }
+                        $(this).prop("added", 0);
+                        $(this).removeClass("glyphicon-minus");
+                        $(this).addClass("glyphicon-plus");
+                    }else{
+                        alert("未知状态： " + $(this).prop("added"));
                     }
-                    $(div).append(ul);
-                    $(container).append(div);
-                }
+                    console.log(selectedSec);
+                });
+                $(div).append(code);
+                $(div).append(name);
+                $(div).append(btn);
+                container.append(div);
             }
-        };
-
-        function addLiEvent(li){
-
         }
     }
+
 </script>
 </body>
 </html>

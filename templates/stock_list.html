@@ -188,12 +188,13 @@
 <script src="/static/lib/jquery-1.11.0.min.js" type="text/javascript"></script>
 <script src="/static/echarts/dist/echarts.js" type="text/javascript"></script>
 <script src="/static/bootstrap3.3.7/js/bootstrap.js" type="text/javascript"></script>
-<script src="/static/js/variables.js" type="text/javascript"></script>
-<script src="/static/js/events.js" type="text/javascript"></script>
-<script src="/static/js/functions.js" type="text/javascript"></script>
-<script src="/static/js/classes.js" type="text/javascript"></script>
-<script type="text/javascript">
+<script type="module">
     //var myChart = echarts.init(document.getElementById('main'));
+    import {stockListEvents} from "../static/js/events.js";
+    import {StockDetail, IndicatorDict} from "../static/js/classes.js";
+    import {LIST_LARGE, LIST_SMALL} from "../static/js/variables.js";
+    import {removeChild} from "../static/js/functions.js";
+
     let dataset = null;
     stockListEvents();
     $.ajax({

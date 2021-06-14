@@ -49,7 +49,7 @@ class DataClient(object):
         ts.set_token('92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947')
         self.pro = ts.pro_api()
 
-    def stock_basic(self, list_status='L', exchange: str = None) -> pd.DataFrame:
+    def stock_basic(self, list_status=None, exchange: str = None) -> pd.DataFrame:
         """
         股票基本信息，数据采集自tushare stock_basic接口
         :param list_status: 上市状态 L上市， D退市，P暂停上市，默认为L
@@ -181,14 +181,19 @@ class DataClient(object):
         #
         return current_date, previous_date
 
-    def get_sec_pool(self, sec_pool: str or List[str], start_date: datetime.date):
+    def get_sec_pool(self, sec_pool: str or List[str], start_date: datetime.date = None):
+        sec_list = None
         if isinstance(sec_pool, six.string_types) and sec_pool in self.index_basic()['ts_code'].tolist():
-            return self.index_weight(
-                index_code=sec_pool, trade_date=start_date)['con_code'].tolist()
+            sec_list = self.index_weight(
+                index_code=sec_pool, trade_date=start_date)[['con_code']].rename(columns={"con_code": "ts_code"})
         elif isinstance(sec_pool, list):
-            return sec_pool
+            sec_list = sec_pool
         else:
             raise ParamError("sec_pool error")
+        stock_basic = self.stock_basic(list_status=None)
+        sec_list = pd.merge(left=sec_list, right=stock_basic, on='ts_code', how='left')
+        # print(sec_list)
+        return sec_list
 
     def get_k_data(self, dt: str, sec_codes: List[str], columns: str or List[str], fq: str = 'D', **kwargs):
         """

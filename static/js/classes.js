@@ -1,3 +1,5 @@
+import {addLiEvent} from "./events.js";
+
 function StockUnit(stockData) {
     this.stockData = stockData;
     // 为每支个股unit分配相应的id
@@ -69,7 +71,6 @@ function StockUnit(stockData) {
         $(selectedB).prop("status", 1);
     }
 }
-
 
 function DropdownCheckbox(indicators, targetId, parentId) {
     /**
@@ -348,7 +349,6 @@ function TabularStock(dataset) {
     };
 }
 
-
 /**
  * @class StockInfo
  * @classdesc 用于创建股票基本信息的div，包括股票名称、股票代码以及价格
@@ -375,7 +375,6 @@ function StockInfo(stockCode, stockName, stockPrice) {
         return infoDiv;
     }
 }
-
 
 /**
  * @class Indicator
@@ -663,3 +662,103 @@ function StockDetail(dataset) {
         $(pageTurnDiv).css("left", (listDiv.innerWidth() - $(pageTurnDiv).width()) / 2);
     }
 }
+
+/**
+ * ******************************************************************************
+ * multi_indicator.html
+ */
+function IndicatorList(containerId, indicatorTree, targetId) {
+    let container = $(`#${containerId}`);
+    let target = $(`#${targetId}`);
+    this.indicatorTree = indicatorTree;
+
+    IndicatorList.prototype.createPanel = function () {
+        for (let item in this.indicatorTree) {
+            if (this.indicatorTree.hasOwnProperty(item)) {
+                // 获取该item下的所有指标
+                let indicators = this.indicatorTree[item];
+                // 放置该item的容器
+                let div = document.createElement("div");
+                $(div).addClass("list-unit");
+                // 该item的标题
+                let titleP = document.createElement("p");
+                titleP.innerHTML = indicators['name'];
+                $(div).append(titleP);
+                delete indicators['name']; // 注意此处删除会影响到原先的对象
+                // 添加该item下的各个指标
+                let ul = document.createElement("ul");
+                for (let indicator in indicators) {
+                    if (indicators.hasOwnProperty(indicator)) {
+                        let li = document.createElement("li");
+                        // 获取该指标的具体内容
+                        let indicatorInfo = indicators[indicator];
+                        li.innerHTML = indicatorInfo['name'];
+                        $(li).prop("indicator", indicator);
+                        $(li).prop("selected", 0);
+                        delete indicatorInfo['name'];
+                        addLiEvent(li, indicatorInfo, "selected-indicator");
+                        $(ul).append(li);
+                    }
+                }
+                $(div).append(ul);
+                $(container).append(div);
+            }
+        }
+        let closeBtn = document.createElement("button");
+        $(closeBtn).addClass("glyphicon glyphicon-remove close-btn btn-style-1");
+        $(closeBtn).click(function () {
+            container.css("display", "none");
+        });
+        container.append(closeBtn);
+    };
+}
+
+function StockPoolList(containerId, stockPoolTree) {
+    let container = $(`#${containerId}`);
+    this.stockPoolTree = stockPoolTree;
+
+    StockPoolList.prototype.createPanel = function () {
+        for (let item in this.stockPoolTree) {
+            if (this.stockPoolTree.hasOwnProperty(item)) {
+                // 获取该item下的所有指标
+                let indexCodes = this.stockPoolTree[item];
+                // 放置该item的容器
+                let div = document.createElement("div");
+                $(div).addClass("list-unit");
+                // 该item的标题
+                let titleP = document.createElement("p");
+                titleP.innerHTML = indexCodes['name'];
+                $(div).append(titleP);
+                delete indexCodes['name']; // 注意此处删除会影响到原先的对象
+                // 添加该item下的各个指标
+                let ul = document.createElement("ul");
+                for (let indexCode in indexCodes) {
+                    if (indexCodes.hasOwnProperty(indexCode)) {
+                        let li = document.createElement("li");
+                        // 获取该指标的具体内容
+                        li.innerHTML = indexCodes[indexCode];
+                        $(li).prop("indexCode", indexCode);
+                        $(li).prop("selected", 0);
+                        //delete indicatorInfo['name'];
+                        addLiEvent(li, null, "selected-pool");
+                        $(ul).append(li);
+                    }
+                }
+                $(div).append(ul);
+                $(container).append(div);
+            }
+        }
+        let closeBtn = document.createElement("button");
+        $(closeBtn).addClass("glyphicon glyphicon-remove close-btn btn-style-1");
+        $(closeBtn).click(function () {
+            container.css("display", "none");
+        });
+        container.append(closeBtn);
+    };
+}
+
+export {
+    StockUnit, DropdownCheckbox, IndicatorDict, OptionUnit,
+    TabularStock, StockInfo, Indicator, PageTurn, StockDetail,
+    IndicatorList, StockPoolList
+};

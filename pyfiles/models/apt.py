@@ -24,13 +24,16 @@ class APT(object):
     indicators = []
 
     def __init__(self, **kwargs):
-        self.indicators = ['eps', 'roe', 'revenue_ps', 'ebit_of_gr', 'fcff_ps']
-        self.indicator_name = ['基本每股收益', '净资产收益率', '每股营业收入', '息税前利润/营业总收入', '每股企业自由现金流量']
-        self.data_client = DataClient()
-        sec_pool = kwargs.get("sec_pool", '399300.SZ')
+        self.indicators = kwargs.get("indicators", ['eps', 'roe', 'revenue_ps', 'ebit_of_gr', 'fcff_ps'])
+        self.index_code = kwargs.get("index_code", None)
+        self.sec_pool = kwargs.get("sec_pool", [])
         self.start_date = to_date(kwargs.get("start_date", "2018-01-01"))
         self.end_date = to_date(kwargs.get("end_date", datetime.datetime.now().date().isoformat()))
-        self.sec_pool = self.data_client.get_sec_pool(sec_pool=sec_pool, start_date=self.start_date)
+        #
+        if len(self.sec_pool) == 0 and self.index_code is not None:
+            self.sec_pool = self.data_client.get_sec_pool(sec_pool=sec_pool, start_date=self.start_date)
+        self.indicator_name = ['基本每股收益', '净资产收益率', '每股营业收入', '息税前利润/营业总收入', '每股企业自由现金流量']
+        self.data_client = DataClient()
         self.model = LinearRegression()
 
     def correlation_check(self, **kwargs):

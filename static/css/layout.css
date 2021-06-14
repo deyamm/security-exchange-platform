@@ -1,0 +1,140 @@
+body {
+    padding: 0;
+    margin: 0;
+}
+
+body, html {
+    overflow-x: hidden;
+}
+
+.headline-text {
+    position: relative;
+    top: 5%;
+    left: 3%;
+    font-size: 30px;
+}
+
+#leadline {
+    position: relative;
+    height: 7%;
+    background: #afd9ee;
+}
+
+#option-div {
+    position: relative;
+    height: 10%;
+    background: #9acfea;
+}
+
+#list-div {
+    position: relative;
+    height: 80%;
+    background: #ffffff;
+}
+
+/******************stock_list.html*************************/
+#dropdown-div {
+    position: absolute;
+    display: none;
+    background: #9acfea;
+    width: 200px;
+    border-radius: 20px;
+}
+
+#dropdown-close {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    outline: none;
+    border: none;
+    color: #d9edf7;
+    background: rgba(255, 255, 255, 0);
+}
+
+#dropdown-close:hover {
+    color: #0f0f0f;
+}
+
+.dropdown-btns {
+    position: absolute;
+    top: 80px;
+    height: 20px;
+    right: 10px;
+}
+
+#option-add-btn {
+    float: left;
+    font-size: 20px;
+    height: 50px;
+}
+
+#option-search-btn {
+    float: left;
+    font-size: 20px;
+    height: 50px;
+}
+
+#option-area {
+    padding: 10px;
+}
+
+#option-set {
+    position: relative;
+}
+
+.option-unit {
+    float: left;
+    padding: 5px;
+    border: #265a88 1px solid;
+    border-radius: 5px;
+    margin: 5px;
+}
+
+.option-unit select {
+    text-align: center;
+    text-align-last: center;
+    appearance: none;
+    width: 20px;
+    border: none;
+    background: rgba(0, 0, 0, 0);
+}
+
+.option-unit input {
+    width: 50px;
+}
+
+#option-select-div {
+    display: none;
+    position: absolute;
+    top: 200px;
+    left: 800px;
+    width: 200px;
+    background: #d9edf7;
+    z-index: 2;
+    padding: 16px;
+}
+
+#option-select-div button {
+    font-size: 20px;
+}
+
+#option-select-div p {
+    font-size: 30px;
+}
+
+#option-select {
+    margin-bottom: 10px;
+    font-size: 16px;
+    height: 30px;
+}
+
+.btn-style-1 {
+    border: none;
+    outline: none;
+    color: #999999;
+    background: rgba(0, 0, 0, 0);
+}
+
+.btn-style-1:hover {
+    color: #265a88;
+}

@@ -149,6 +149,14 @@ class Server(object):
         else:
             return fina_data
 
+    def multi_indicator_regression(self):
+        pass
+
+    def get_sec_pool(self, pool_list):
+        sec_list = self.data_client.get_sec_pool(sec_pool='000016.SH')
+        # print(sec_list['list_date'])
+        return sec_list
+
     @staticmethod
     def add_option(key: str, words: List[str], filters: dict):
         option_len = len(words)

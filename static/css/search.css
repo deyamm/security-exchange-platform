@@ -1,0 +1,36 @@
+#search-div {
+    position: relative;
+    top: 5%;
+    border: #2aabd2 1px solid;
+    height: 30px;
+    padding: 0;
+    background: #ffffff;
+}
+
+#search-div * {
+    margin: 0;
+    padding: 0;
+}
+
+#search-div input {
+    float: left;
+    width: 80%;
+    height: 100%;
+    border: 0;
+    margin-left: 10px;
+    outline: none;
+}
+
+#search-div button {
+    float: right;
+    width: 10%;
+    height: 100%;
+    border: 0;
+    color: #9acfea;
+    outline: none;
+    background: rgba(255, 255, 255, 0);
+}
+
+#search-div button:hover {
+    color: #265a88;
+}
