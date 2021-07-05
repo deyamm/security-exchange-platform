@@ -9,15 +9,17 @@
         方法：
 
     问题：不同因子值的数值刻度不同，应想办法统一
+
+
+    根据某一期的财务因子值估计目标价格
 """
-from pyfiles.utils import *
+from pyfiles.backtest.utils import *
 from pyfiles.strategies.single_indicator import SingleIndicator
 from pyfiles.data_client import DataClient
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
-from multiprocessing import Pool, Manager
 
 
 class APT(object):
@@ -27,14 +29,17 @@ class APT(object):
         self.indicators = kwargs.get("indicators", ['eps', 'roe', 'revenue_ps', 'ebit_of_gr', 'fcff_ps'])
         self.index_code = kwargs.get("index_code", None)
         self.sec_pool = kwargs.get("sec_pool", [])
-        self.start_date = to_date(kwargs.get("start_date", "2018-01-01"))
-        self.end_date = to_date(kwargs.get("end_date", datetime.datetime.now().date().isoformat()))
+        self.start_dt = to_date(kwargs.get("start_dt", "2018-01-01"))
+        self.end_dt = to_date(kwargs.get("end_dt", datetime.datetime.now().date().isoformat()))
         #
         if len(self.sec_pool) == 0 and self.index_code is not None:
-            self.sec_pool = self.data_client.get_sec_pool(sec_pool=sec_pool, start_date=self.start_date)
+            self.sec_pool = self.data_client.get_sec_pool(sec_pool=sec_pool, start_date=self.start_dt)
         self.indicator_name = ['基本每股收益', '净资产收益率', '每股营业收入', '息税前利润/营业总收入', '每股企业自由现金流量']
         self.data_client = DataClient()
         self.model = LinearRegression()
+        #
+        self.data_handle()
+        self.regression()
 
     def correlation_check(self, **kwargs):
         """
@@ -56,13 +61,15 @@ class APT(object):
     def data_handle(self, **kwargs):
         """
         多元线性回归，自变量为各个因子值，因变量为一段时间的收益率
-        以财报为时间节点， 取当期因子值，以及该财报公布日至下期财报公布日之间的收益率作为一组观测值，
+        以财报为时间节点， 取当期因子值，
+            option1: 以及该财报公布日至下期财报公布日之间的收益率作为一组观测值，
+            option2: 在该财务因子的条件下，实际的最终价格
         以沪深300为股票池，获取每支股票一年4份财报的数据，共有4*300=1200组观测值
         :return:
         """
         quarter = kwargs.get("quarter", 1)
-        year = kwargs.get("year", 2018)
-        repo_nums = kwargs.get("repo_nums", 4)
+        year = kwargs.get("year", 2010)
+        repo_nums = kwargs.get("repo_nums", 16)
         test_days = kwargs.get("test_days", None)
         echo_info = kwargs.get("echo_info", 1)
         data_set = pd.DataFrame()
@@ -85,8 +92,11 @@ class APT(object):
                 else:
                     end_dt = chg_dt(dt=dt_range.loc[sec_code, 'start_date'], days=test_days,
                                     direction='front', is_trade_day=True)
-                indicator_df.loc[sec_code, 'profit_rate'] = self.data_client.get_profit_rate(
-                    sec_code=sec_code, start_dt=dt_range.loc[sec_code, 'start_date'], end_dt=end_dt, is_index=False, by='price')
+                indicator_df.loc[sec_code, 'price'] = self.data_client.get_price(dt=end_dt, sec_code=sec_code,
+                                                                                 price_type='close', not_exist='last')
+                # indicator_df.loc[sec_code, 'profit_rate'] = self.data_client.get_profit_rate(
+                #    sec_code=sec_code, start_dt=dt_range.loc[sec_code, 'start_date'], end_dt=end_dt,
+                #    is_index=False, by='price')
                 # pro_pool.apply_async(cal_profit_rate, (dt_range.loc[sec_code, 'start_date'],
                 #                                        end_dt, [sec_code],
                 #                                        'roe', echo_info, 2, res_queue, ), error_callback=call_back)
@@ -115,8 +125,8 @@ class APT(object):
         split_line = int(len(data_set) * 0.8)
         train_x = data_set[self.indicators].loc[:split_line]
         test_x = data_set[self.indicators].loc[split_line:]
-        train_y = data_set['profit_rate'].loc[:split_line]
-        test_y = data_set['profit_rate'][split_line:]
+        train_y = data_set['price'].loc[:split_line]
+        test_y = data_set['price'][split_line:]
         # print(train_x)
         # print(test_x)
         self.model.fit(train_x, train_y)

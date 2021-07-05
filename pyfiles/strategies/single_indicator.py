@@ -12,8 +12,8 @@
         交易记录中显示两次
         年报获取问题
 """
-from pyfiles.utils import *
-from pyfiles.api import *
+from pyfiles.backtest.api import *
+from pyfiles.com_lib.tools import *
 import six
 
 
@@ -31,6 +31,8 @@ class SingleIndicator(Strategy):
         self.backtest_params = dict()
         # 初始化策略
         self.initialize()
+        # 指标字典
+        self.indicator_dict = {}
 
     def set_params(self):
         # 股池，待选
@@ -41,7 +43,7 @@ class SingleIndicator(Strategy):
         elif isinstance(sec_pool, list):
             self.g.sec_pool = sec_pool
         else:
-            raise ParamError("sec_pool error")
+            raise ParamError("sec_pool error: ", sec_pool)
         # self.g.sec_pool = ['000001.SZ', '000002.SZ', '000004.SZ', '000005.SZ', '000006.SZ',
         #                    '000007.SZ', '000008.SZ', '000009.SZ', '000010.SZ', '000011.SZ']
         self.g.N = min(self.kwargs.get("max_position_num", 5), len(self.g.sec_pool))  # 持仓个数
@@ -49,7 +51,11 @@ class SingleIndicator(Strategy):
         # 调仓周期，限调用handle_data函数的间隔
         self.g.period = self.kwargs.get("period", 20)
         # 回测过程中的参数
+        self.g.start_dt = self.kwargs.get("start_dt", '2016-01-01')
+        self.g.end_dt = self.kwargs.get("end_dt", '2021-01-01')
         self.backtest_params['echo_info'] = self.kwargs.get("echo_info", 1)
+        indicator_dict = IndicatorDict()
+        self.indicator_dict = indicator_dict.classify([self.g.indicator])
 
     def set_variables(self):
         # 设置基准指数
@@ -70,17 +76,19 @@ class SingleIndicator(Strategy):
         current_date = self.account.current_date
         # 卖出所有持仓
         self.account.clear_position(echo_info=self.backtest_params['echo_info'])
-        # 获取pe数据
-        # indicator_df = self.data_client.get_pe_list(dt=to_date_str(previous_date), sec_codes=self.g.sec_pool,
-        #                                        pe_type=['S', 'T'])
-        indicator_df = self.data_client.get_fina_list(sec_codes=self.g.sec_pool, columns=[self.g.indicator],
-                                                      end_dt=to_date_str(self.account.current_date)).set_index('ts_code')
+        # 获取财务数据
+        # indicator_df = self.data_client.get_fina_list(sec_codes=self.g.sec_pool, columns=[self.g.indicator],
+        #                                               end_dt=to_date_str(self.account.current_date)).set_index('ts_code')
+        # 获取k线数据
+        indicator_df = self.data_client.get_k_data(dt=to_date_str(previous_date), sec_codes=self.g.sec_pool,
+                                                   columns=self.g.indicator)
         # 升序排序
-        # print(indicator_df)
-        indicator_df.sort_values(by=self.g.indicator, axis=0, inplace=True)
+        # print(type(indicator_df.loc[0, 'pe_ttm']))
+        indicator_df.sort_values(by=self.g.indicator, axis=0, inplace=True, ascending=False)
+        print(indicator_df)
         # 买入个股
         target = indicator_df.index[:min(self.g.N, len(indicator_df))].tolist()
-        # print(target)
+        print(target)
         for sec_code in target:
             if self.data_client.is_trade(sec_code=sec_code, dt=to_date_str(current_date)):
                 price = self.data_client.get_price(dt=to_date_str(current_date), sec_code=sec_code, price_type='open',

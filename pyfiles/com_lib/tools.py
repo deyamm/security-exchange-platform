@@ -1,40 +1,86 @@
 # -*- coding: utf-8 -*-
 import six
 import datetime
-from pyfiles.exceptions import *
+from pyfiles.com_lib.exceptions import *
+from pyfiles.com_lib.variables import *
 import json
 import math
 import pandas as pd
-import numpy as np
-import MySQLdb as sql
 from typing import List
 # from pyfiles.utils import *
 
 
-class MySqlServer(object):
+class BasicInfo(object):
+    """
+    存储证券基础信息，比如股票列表、指数列表、专业术语翻译等内容
+    """
+    stock_basic: pd.DataFrame = None
+    index_basic: pd.DataFrame = None
+    fund_basic: pd.DataFrame = None
+    trade_cal: pd.DataFrame = None
+
+    def __init__(self, mysql_client, **kwargs):
+        self.stock_basic = mysql_client.query("select * from basic_info.stock_basic")
+        self.index_basic = mysql_client.query("select * from basic_info.index_basic")
+        self.fund_basic = mysql_client.query("select * from basic_info.fund_basic")
+        self.trade_cal = mysql_client.query("select * from basic_info.trade_cal")
+
+    def word_translate(self, word, word_type):
+        if word_type == 'sec_code':  # 将证券名称转化为证券代码
+            word_list = self.stock_basic[self.stock_basic['name'] == word]['ts_code'].tolist()
+            if len(word_list) >= 1:
+                return word_list[0]
+            else:
+                return "translate error"
+        elif word_type == 'index_code':  # 将指数名称转化为指数代码
+            word_list = self.index_basic[self.index_basic['name'] == word]['ts_code'].tolist()
+            if len(word_list) >= 1:
+                return word_list[0]
+            else:
+                return "translate error"
+        elif word_type == 'noun':  # 将术语转化为该平台通用的英文字符串
+            if word == '股池':
+                return 'sec_pool'
+        else:
+            return 'undetermined'
+
+
+class IndicatorDict(object):
+    indicator_list = None
+    indicator_dict = {}
+    method_dict = {}
 
     def __init__(self):
-        host = 'localhost'
-        port = 3306
-        user = 'root'
-        passwd = 'qq16281091'
-        db = 'stock'
-        charset = 'utf8'
-        self.connect = sql.connect(host=host, port=port, user=user, passwd=passwd, db=db, charset=charset)
-        self.cursor = self.connect.cursor()
+        with open(PRO_PATH + '/data/indicator_dict.json') as f:
+            self.indicator_list = json.load(f)
+        for category in self.indicator_list:
+            indicators = self.indicator_list[category]
+            if category == 'method_name':
+                for method in indicators:
+                    self.method_dict[method] = indicators[method]
+                    continue
+            for indicator in indicators:
+                self.indicator_dict[indicator] = {'category': category, 'name': indicators[indicator]}
 
-    def query(self, query: str):
-        self.cursor.execute(query)
-        data = np.array(self.cursor.fetchall())
-        df = pd.DataFrame(data, columns=[col[0] for col in self.cursor.description])
-        return df
+    def echo_dict(self):
+        print(json.dumps(self.indicator_dict, indent=1, ensure_ascii=False))
+        print(json.dumps(self.method_dict, indent=1, ensure_ascii=False))
 
-    def get_cursor(self):
-        return self.cursor
+    def get_method_dict(self):
+        return self.method_dict
 
-    def __del__(self):
-        self.cursor.close()
-        self.connect.close()
+    def classify(self, indicators: List[str]):
+        res = {}
+        for indicator in indicators:
+            if indicator in self.indicator_dict:
+                category = self.indicator_dict[indicator]['category']
+                if category in res:
+                    res[category].append(indicator)
+                else:
+                    res[category] = [indicator]
+            else:
+                print('IndicatorDict: ' + indicator + ' 尚未支持')
+        return res
 
 
 # 检测是否为字符串
@@ -279,3 +325,4 @@ def get_option_query(filters, sql_type: str = 'mysql'):
         return query
     else:
         return None
+

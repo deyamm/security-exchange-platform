@@ -3,17 +3,12 @@
     为便于维护，
     关于日期变量命名，后缀为dt的变量为字符串，后缀为date的变量为datetime.date
 """
-import datetime
-import traceback
 
-from pyfiles.exceptions import *
-from pyfiles.data_client import DataClient
-from pyfiles import variables
-from typing import List
-from pyfiles.tools import *
+from pyfiles.data_client import DataClient, MySqlServer
+from pyfiles.com_lib.variables import *
+from pyfiles.com_lib.tools import *
 import numpy as np
 import time
-import os
 
 
 class TradeLog(object):
@@ -382,7 +377,7 @@ class AccountInfo(object):
         self.portfolio.daily_update(self.positions)
         # 记录指标
         self.metrics.add_profit(self.portfolio.profit, to_date_str(self.current_date))
-        if echo_info >= variables.ECHO_INFO_ACCOUNT:
+        if echo_info >= ECHO_INFO_ACCOUNT:
             print("账户更新结束，%s，当前总资产：%f" % (to_date_str(self.current_date), self.portfolio.total_asset))
 
     def clear_position(self, **kwargs):
@@ -399,7 +394,7 @@ class AccountInfo(object):
                                                price_type='open', not_exist='last')
             amount = position.amount
             position.clear(price=price, portfolio=self.portfolio, dt=to_date_str(self.current_date))
-            if echo_info >= variables.ECHO_INFO_TRADE:
+            if echo_info >= ECHO_INFO_TRADE:
                 print("卖出，%s，%s，数量：%d，价格：%f， 剩余现金：%f"
                       % (to_date_str(self.current_date), position.sec_code, amount, price, self.portfolio.available_cash))
         # self.positions = []
@@ -488,7 +483,7 @@ class Strategy(object):
         self.account.set_cur_date(cur_dt=to_date_str(current_date))
         self.account.set_pre_date(pre_dt=to_date_str(start_date))
         #
-        if self.backtest_params['echo_info'] >= variables.ECHO_INFO_BE:
+        if self.backtest_params['echo_info'] >= ECHO_INFO_BE:
             print("回测开始，开始日期：%s，结束日期：%s，账户总资金：%f，股池: %s"
                   % (to_date_str(start_date), to_date_str(end_date), self.account.portfolio.inout_cash,
                      ','.join(self.g.sec_pool)))
@@ -513,44 +508,10 @@ class Strategy(object):
             current_date = current_date + datetime.timedelta(days=1)
             self.account.set_cur_date(cur_dt=to_date_str(current_date))
         time_end = time.time()
-        if self.backtest_params['echo_info'] >= variables.ECHO_INFO_BE:
+        if self.backtest_params['echo_info'] >= ECHO_INFO_BE:
             print("回测结束，本次用时：%fs" % (time_end - time_start))
         self.account.metrics.cal_max_drawdown()
         self.account.metrics.cal_sharpe()
         return self.account.metrics
 
 
-class BasicInfo(object):
-    """
-    存储证券基础信息，比如股票列表、指数列表、专业术语翻译等内容
-    """
-    stock_basic: pd.DataFrame = None
-    index_basic: pd.DataFrame = None
-    fund_basic: pd.DataFrame = None
-    trade_cal: pd.DataFrame = None
-
-    def __init__(self, **kwargs):
-        mysql = MySqlServer()
-        self.stock_basic = mysql.query("select * from basic_info.stock_basic")
-        self.index_basic = mysql.query("select * from basic_info.index_basic");
-        self.fund_basic = mysql.query("select * from basic_info.fund_basic")
-        self.trade_cal = mysql.query("select * from basic_info.trade_cal")
-
-    def word_translate(self, word, word_type):
-        if word_type == 'sec_code':  # 将证券名称转化为证券代码
-            word_list = self.stock_basic[self.stock_basic['name'] == word]['ts_code'].tolist()
-            if len(word_list) >= 1:
-                return word_list[0]
-            else:
-                return "translate error"
-        elif word_type == 'index_code':  # 将指数名称转化为指数代码
-            word_list = self.index_basic[self.index_basic['name'] == word]['ts_code'].tolist()
-            if len(word_list) >= 1:
-                return word_list[0]
-            else:
-                return "translate error"
-        elif word_type == 'noun':  # 将术语转化为该平台通用的英文字符串
-            if word == '股池':
-                return 'sec_pool'
-        else:
-            return 'undetermined'

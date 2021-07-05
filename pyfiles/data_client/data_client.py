@@ -2,22 +2,18 @@
 """
     添加异常处理
 """
-import MySQLdb as sql
-from sqlalchemy import create_engine
-import numpy as np
-import datetime
-import pandas as pd
 import warnings
-from typing import List, Iterable
+from typing import Iterable, List
 import pymongo
 import tushare as ts
-from pyfiles.tools import *
-from pyfiles.variables import *
+from pyfiles.com_lib.tools import *
+from pyfiles.com_lib.variables import *
+from .database_client import MySqlServer
+import pandas as pd
 
 
 class DataClient(object):
-    connect = None
-    cursor = None
+    mysql_client = None
     trade_cal = None
     mongo_client = None
     pro = None
@@ -30,19 +26,16 @@ class DataClient(object):
         passwd = kwargs.get("passwd", 'qq16281091')
         db = kwargs.get("db", 'stock')
         charset = kwargs.get("charset", 'utf8')
+        self.mysql_client = MySqlServer()
         self.error_level = kwargs.get("error_level", ERROR_L1)
         # 建立连接
-        self.connect = sql.connect(host=host, port=port, user=user, passwd=passwd, db=db, charset=charset)
-        self.cursor = self.connect.cursor()
         # self.mongo_client = pymongo.MongoClient(host='localhost', port=27017)
         # self.mongo_client = pymongo.MongoClient(host='localhost', port=27017, username='admin', password='qq16281091',
         #                                         authSource='admin', authMechanism='SCRAM-SHA-256')
         self.mongo_client = pymongo.MongoClient("mongodb://root:qq16281091@localhost/fina_db?authSource=admin")
         # 将整个交易日历存储下来
         query = "select * from basic_info.trade_cal"
-        self.cursor.execute(query)
-        self.trade_cal = pd.DataFrame(np.array(self.cursor.fetchall()),
-                                      columns=[col[0] for col in self.cursor.description])
+        self.trade_cal = self.mysql_client.query(query)
         # 将datetime类型设置为索引，输出整个对象时只显示日期，实际仍是datetime类型
         self.trade_cal.set_index('cal_date', inplace=True)
         # print(self.trade_cal)
@@ -65,9 +58,7 @@ class DataClient(object):
             if exchange is not None:
                 term.append("exchange='%s'" % exchange)
             query = "select * from basic_info.stock_basic where " + ' and '.join(term)
-        self.cursor.execute(query)
-        stock_basic = pd.DataFrame(np.array(self.cursor.fetchall()),
-                                   columns=[col[0] for col in self.cursor.description])
+        stock_basic = self.mysql_client.query(query)
         return stock_basic
 
     def index_basic(self, ts_code: str = None, name: str = None, market: str = None,
@@ -95,9 +86,7 @@ class DataClient(object):
         query = "select * from basic_info.index_basic"
         if len(term) > 0:
             query = query + ' where ' + ' and '.join(term)
-        self.cursor.execute(query)
-        index_basic = pd.DataFrame(np.array(self.cursor.fetchall()),
-                                   columns=[col[0] for col in self.cursor.description])
+        index_basic = self.mysql_client.query(query)
         return index_basic
 
     def index_weight(self, index_code: str, trade_date: datetime.date = None) -> pd.DataFrame:
@@ -135,11 +124,10 @@ class DataClient(object):
         else:
             query = "select trade_date from stock.%s_daily where trade_date < '%s'" % (sec_code[:6], dt)
         try:
-            self.cursor.execute(query)
-        except Exception:
+            dates = self.mysql_client.query(query, return_type='np')
+        except ParamError:
             print(sec_code + "不存在")
             return None
-        dates = np.array(self.cursor.fetchall()).ravel()
         # 应先转化为str
         if to_date_str(dates[-1].date()) == dt:
             return to_date_str(dates[-2].date())
@@ -157,8 +145,7 @@ class DataClient(object):
             query = "select trade_date from indexes.%s_daily where trade_date > '%s'" % (sec_code[:6], dt)
         else:
             query = "select trade_date from stock.%s_daily where trade_date > '%s'" % (sec_code[:6], dt)
-        self.cursor.execute(query)
-        dates = np.array(self.cursor.fetchall()).ravel()
+        dates = self.mysql_client.query(query, return_type='np')
         # 应先转化为str
         if to_date_str(dates[0].date()) == dt:
             return to_date_str(dates[1].date())
@@ -212,6 +199,8 @@ class DataClient(object):
         if mas is not None and len(mas) > 0:
             for ma in mas:
                 columns.append("ma" + str(ma))
+        if 'ts_code' not in columns:
+            columns.insert(0, 'ts_code')
         data = pd.DataFrame(columns=columns)
         filter_query = get_option_query(filters)
         for sec_code in sec_codes:
@@ -223,10 +212,10 @@ class DataClient(object):
                 query = query + ' and ' + filter_query
             # print('mysql query ', query)
             try:
-                self.cursor.execute(query)
+                res = self.mysql_client.query(query, return_type='np')
             except Exception as e:
                 raise SQLError("未找到%s表，或不存在指定属性" % table_name)
-            res = np.array(self.cursor.fetchall())
+            print(res)
             if len(res) > 0:
                 data = pd.concat([data, pd.DataFrame(res, columns=[col[0] for col in self.cursor.description])],
                                  axis=0, ignore_index=True)
@@ -252,11 +241,10 @@ class DataClient(object):
                 % ('ma' + str(days), table_name, dt)
         # print(query)
         try:
-            self.cursor.execute(query)
+            res = self.mysql_client.query(query, return_type='np')
         except Exception as e:
             raise SQLError("未找到%s表，或不存在指定属性" % table_name)
         #
-        res = np.array(self.cursor.fetchall())
         if len(res > 0) and len(res[0] > 0):
             return res[0][0]
         else:
@@ -278,10 +266,9 @@ class DataClient(object):
         query = "select %s from stock.%s where trade_date='%s'" \
                 % (price_type, sec_code[:6] + '_daily', dt)
         try:
-            self.cursor.execute(query)
+            res = self.mysql_client.query(query, return_type='np')
         except Exception as e:
             raise SQLError("未找到%s表，或价格类型（open/close/high/low）错误")
-        res = np.array(self.cursor.fetchall())
         # print(res[0][0])
         if len(res) > 0 and len(res[0]) > 0:
             return res[0][0]
@@ -306,8 +293,7 @@ class DataClient(object):
         table_name = sec_code + '_' + fq_trans(freq)
         query = "select amount from stock.%s where trade_date between '%s' and '%s'" \
                 % (table_name, start_dt, end_dt)
-        self.cursor.execute(query)
-        volume = np.array(self.cursor.fetchall()).flatten().tolist()
+        volume = self.mysql_client.query(query, return_type='np').flatten().tolist()
         return volume
 
     def get_profit_rates(self, sec_codes: List[str], start_dt: str, end_dt: str,
@@ -355,14 +341,12 @@ class DataClient(object):
                 query = "select trade_date, close from indexes.%s_daily where trade_date between '%s' and '%s'" \
                         % (sec_code[:6], self.get_pre_trade_dt(sec_code=sec_code, dt=start_dt, is_index=True), end_dt)
             try:
-                self.cursor.execute(query)
+                data = self.mysql_client.query(query)
             except Exception:
                 print(sec_code + "不存在")
                 return None
-            array = np.array(self.cursor.fetchall())
-            if len(array) <= 1:
+            if len(data) <= 1:
                 return None
-            data = pd.DataFrame(array, columns=[col[0] for col in self.cursor.description])
             data.sort_values(by='trade_date', inplace=True)
             try:
                 if is_index is True:
@@ -384,14 +368,12 @@ class DataClient(object):
                 query = "select trade_date, pct_chg from indexes.%s_daily where trade_date between '%s' and '%s'" \
                         % (sec_code[:6], start_dt, end_dt)
             try:
-                self.cursor.execute(query)
+                data = self.mysql_client.query(query)
             except Exception:
                 print(sec_code + "不存在")
                 return None
-            array = np.array(self.cursor.fetchall())
-            if len(array) <= 0:
+            if len(data) <= 0:
                 return None
-            data = pd.DataFrame(array, columns=[col[0] for col in self.cursor.description])
             data.sort_values(by='trade_date', inplace=True)
             profit_rate = 1
             for rate in data['pct_chg'].values:
@@ -414,8 +396,7 @@ class DataClient(object):
         table_name = index_code[:6] + '_' + fq_trans(freq)
         query = "select %s from indexes.%s where trade_date between '%s' and '%s'" \
                 % (','.join(columns), table_name, start_dt, end_dt)
-        self.cursor.execute(query)
-        data = pd.DataFrame(np.array(self.cursor.fetchall()), columns=[col[0] for col in self.cursor.description])
+        data = self.mysql_client.query(query)
         return data[columns]
 
     def get_price_list(self, dt: str, sec_codes: List[str], price_type):
@@ -441,8 +422,7 @@ class DataClient(object):
         :return: True/False
         """
         query = "select trade_date from %s_daily where trade_date='%s'" % (sec_code[:6], dt)
-        self.cursor.execute(query)
-        re = np.array(self.cursor.fetchall())
+        re = self.mysql_client.query(query, return_type='np')
         if len(re) == 0:
             return False
         else:
@@ -659,7 +639,7 @@ class DataClient(object):
 
     def get_pb(self, dt: str, sec_code: str) -> float:
         """
-        计算指定证券在指定日期时的市净率ps，
+        计算指定证券在指定日期时的市净率pb，
         计算方法：当日的股价/最新一季财报每股净资产bps
         :param dt:
         :param sec_code:
@@ -688,30 +668,16 @@ class DataClient(object):
         return res
 
     def get_pb_list(self, dt: str, sec_codes: List[str]) -> pd.DataFrame:
-        res = pd.DataFrame(columns=['sec_code', 'ps'])
+        res = pd.DataFrame(columns=['sec_code', 'pb'])
         res['sec_code'] = sec_codes
         res.set_index('sec_code', inplace=True)
         for sec_code in sec_codes:
-            res.loc[sec_code, 'ps'] = self.get_ps(dt=dt, sec_code=sec_code)
+            res.loc[sec_code, 'pb'] = self.get_pb(dt=dt, sec_code=sec_code)
         return res
 
     def __del__(self):
-        self.cursor.close()
-        self.connect.close()
         self.mongo_client.close()
-
-
-class DataClientORM(object):
-    engine = None
-
-    def __init__(self, **kwargs):
-        host = kwargs.get("host", 'localhost')
-        port = kwargs.get("port", 3306)
-        user = kwargs.get("user", 'root')
-        passwd = kwargs.get("passwd", 'qq16281091')
-        db = kwargs.get("db", 'stock')
-        charset = kwargs.get("charset", 'utf8')
-        self.engine = create_engine("mysql://%s:%s@%s:%s/%s?%s" % (user, passwd, host, port, db, charset))
+        self.mysql_client.close()
 
 
 # data_client = DataClient()

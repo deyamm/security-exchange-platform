@@ -4,10 +4,9 @@
     每天开盘后，如果前一天的收盘价高于前一天的20天均线，则将一份资金全部买入该股
     如果前一天收盘价低于前一天20天均线，则将该股全部卖出。
 """
-from pyfiles.api import *
+from pyfiles.backtest.api import *
 from pyfiles.data_client import DataClient
 # from pyfiles.utils import *
-import math
 
 
 # 策略初始化

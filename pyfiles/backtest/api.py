@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-from pyfiles.utils import *
-from pyfiles import variables
+from pyfiles.backtest.utils import *
+from pyfiles.com_lib.variables import *
 
 
 def order(account: AccountInfo, g: GlobalVariable, sec_code: str, price: float, amount: int, side: str, **kwargs):
@@ -32,7 +31,7 @@ def order(account: AccountInfo, g: GlobalVariable, sec_code: str, price: float, 
             # 调整账户资金
             portfolio.trade(sec_code=sec_code, price=price, amount=amount, side='B',
                             dt=to_date_str(account.current_date))
-            if echo_info >= variables.ECHO_INFO_TRADE:
+            if echo_info >= ECHO_INFO_TRADE:
                 print('新增，%s，%s，数量：%d，价格：%f，总价：%f，剩余现金：%f'
                       % (to_date_str(account.current_date), sec_code, amount, price, amount*price, account.portfolio.available_cash))
         else:
@@ -41,7 +40,7 @@ def order(account: AccountInfo, g: GlobalVariable, sec_code: str, price: float, 
             # 调整资金账户, 'B'表示买入证券
             portfolio.trade(sec_code=sec_code, price=price, amount=amount,
                             side='B', dt=to_date_str(account.current_date))
-            if echo_info >= variables.ECHO_INFO_TRADE:
+            if echo_info >= ECHO_INFO_TRADE:
                 print('买入，%s，%s，数量：%d，价格：%f，总价：%f，剩余现金：%f'
                       % (to_date_str(account.current_date), sec_code, amount, price, amount*price, account.portfolio.available_cash))
     elif side == 'S':  # 卖出
@@ -54,7 +53,7 @@ def order(account: AccountInfo, g: GlobalVariable, sec_code: str, price: float, 
                 # 调整资金
                 portfolio.trade(sec_code=sec_code, price=price, amount=amount,
                                 side='S', dt=to_date_str(account.current_date))
-                if echo_info >= variables.ECHO_INFO_TRADE:
+                if echo_info >= ECHO_INFO_TRADE:
                     print('卖出，%s，%s，数量：%d，价格：%f，总价%f，剩余现金：%f'
                           % (to_date_str(account.current_date), sec_code, amount, price, amount*price, account.portfolio.available_cash))
                 return

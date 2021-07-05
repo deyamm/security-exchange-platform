@@ -4,13 +4,14 @@ from flask import render_template
 from flask_cors import CORS
 import json
 from server import Server
-from blueprint import quant
+from blueprint import quant, fetch_data
 
 app = Flask(__name__)
 CORS(app)
 server = Server()
 
 app.register_blueprint(quant.quant)
+app.register_blueprint(fetch_data.data)
 
 
 @app.route('/')
@@ -44,11 +45,6 @@ def multi_indicator_page():
     return render_template("multi_indicator.html")
 
 
-@app.route('/quant_indicator.html')
-def quant_indicator_page():
-    return render_template('quant_indicator.html')
-
-
 @app.route('/stock_pick/init', methods=['GET', 'POST'])
 def stock_pick_init():
     recv = request.get_data()
@@ -73,38 +69,17 @@ def stock_pick_search():
         return json.dumps({'status': 'fail'})
 
 
-@app.route('/data/kline', methods=['GET', 'POST'])
-def get_k_data():
+@app.route("/backtest", methods=['GET', 'POST'])
+def backtest():
     recv = request.get_data()
     if recv:
         recv = json.loads(str(recv, encoding='utf-8'))
-        res = server.k_data(recv['sec_code'])
-        return json.dumps(res, indent=1, ensure_ascii=False)
+        res = server.backtest(sec_pool=recv['sec_pool'], indicator=recv['indicator'],
+                              start_date=recv['start_date'], end_date=recv['end_date'],
+                              strategy=recv['stragety'])
+        return json.dumps({'metrics': res, 'status': 'success'})
     else:
-        return json.dumps({'status': 'fail'})
-
-
-@app.route('/data/profit_line', methods=['GET', 'POST'])
-def get_profit_line():
-    recv = request.get_data()
-    if recv:
-        recv = json.loads(str(recv, encoding='utf-8'))
-        # print(recv)
-        res = server.get_profit_line()
-        return json.dumps(res, indent=1, ensure_ascii=False)
-    else:
-        return json.dumps({'status': 'fail'})
-
-
-@app.route('/data/sec_pool', methods=['GET', 'POST'])
-def get_sec_pool():
-    recv = request.get_data()
-    if recv:
-        recv = json.loads(str(recv, encoding='utf-8'))
-        res = server.get_sec_pool(recv['pool_list'])
-        return res.to_json(force_ascii=False, orient='records')
-    else:
-        return json.dumps({'status': 'fail'})
+        return json.dumps({'stauts': 'fail'})
 
 
 @app.route('/multi_indicator/regression', methods=['GET', 'POST'])

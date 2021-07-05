@@ -2,9 +2,7 @@
 """
     双均线策略，选定两条均线，当短期均线上穿长期均线时买入，下穿时卖出
 """
-from pyfiles.utils import *
-import math
-from pyfiles.api import *
+from pyfiles.backtest.api import *
 
 
 class DoubleMAStrategy(Strategy):

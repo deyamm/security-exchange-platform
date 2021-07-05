@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
-import MySQLdb as sql
-import numpy as np
 import pandas as pd
-import pyfiles.tools as tool
-from pyfiles.back_test import BackTest
-from pyfiles.data_client import DataClient
-from pyfiles.utils import BasicInfo
+from pyfiles.com_lib.tools import *
+from pyfiles.backtest.back_test import BackTest
+from pyfiles.data_client import DataClient, MySqlServer
+from pyfiles.strategies.single_indicator import SingleIndicator
+from pyfiles.com_lib.exceptions import *
 from typing import List
 import json
 import time
+import os
 
 
 class Server(object):
-    mysql = tool.MySqlServer()
+    mysql = MySqlServer()
     data_client = DataClient()
-    basic_info = BasicInfo()
+    basic_info = BasicInfo(mysql)
     
     def k_data(self, sec_code: str, **kwargs):
         """
@@ -30,14 +30,14 @@ class Server(object):
         ma_lines = kwargs.get("ma", ['ma5', 'ma10', 'ma20', 'ma30'])
         fq = kwargs.get("fq", "D")
         # 获取并处理数据
-        table_name = sec_code[:6] + '_' + tool.fq_trans(fq)
+        table_name = sec_code[:6] + '_' + fq_trans(fq)
         columns = ['trade_date', 'open', 'close', 'low', 'high', 'amount']
         columns.extend(ma_lines)
         query = "select %s from stock.%s where trade_date between '%s' and '%s';" \
                 % (','.join(columns), table_name, start_date, end_date)
         data = self.mysql.query(query)
         for line in data.values:
-            line[0] = tool.to_date_str(line[0].date())
+            line[0] = to_date_str(line[0].date())
         # 设置数据格式
         kdata['kdata'] = data[['open', 'close', 'low', 'high']].values.tolist()
         kdata['date'] = data['trade_date'].values.tolist()
@@ -62,29 +62,29 @@ class Server(object):
     def get_fina_data(self, sec_codes, **kwargs):
         start = time.clock()
         filters = kwargs.get("filters", {})
-        trade_date = tool.to_date(kwargs.get("trade_dt", '2019-12-31'))
+        trade_date = to_date(kwargs.get("trade_dt", '2019-12-31'))
         print("开始查询，筛选条件", filters)
-        print("查询日期：%s" % tool.to_date_str(trade_date))
+        print("查询日期：%s" % to_date_str(trade_date))
         # print(filters)
         # sec_codes = ['000001.SZ', '000002.SZ']
         if filters.get("fina_indi") is not None:
             fina_data = self.data_client.get_fina_list(sec_codes=sec_codes, columns=[], year=trade_date.year,
-                                                       quarter=tool.get_quarter(trade_date),filters=filters['fina_indi'])
+                                                       quarter=get_quarter(trade_date), filters=filters['fina_indi'])
         else:
             fina_data = self.data_client.get_fina_list(sec_codes=sec_codes, columns=[], year=trade_date.year,
-                                                       quarter=tool.get_quarter(trade_date))
+                                                       quarter=get_quarter(trade_date))
         stock_basic = self.data_client.stock_basic(list_status=None)
         stock_basic.set_index(keys='ts_code', inplace=True)
         # print(fina_data[['ts_code', 'roe']])
         fina_data['name'] = stock_basic.loc[fina_data['ts_code'], 'name'].values
         # print(stock_basic)
         if filters.get("kline") is not None:
-            indicator = self.data_client.get_k_data(dt=tool.to_date_str(trade_date), sec_codes=sec_codes,
+            indicator = self.data_client.get_k_data(dt=to_date_str(trade_date), sec_codes=sec_codes,
                                                     columns=['ts_code', 'close', 'turnover_rate', 'pe', 'pb',
                                                              'total_mv', 'circ_mv'], filters=filters['kline'],
                                                     is_recur=False)
         else:
-            indicator = self.data_client.get_k_data(dt=tool.to_date_str(trade_date), sec_codes=sec_codes,
+            indicator = self.data_client.get_k_data(dt=to_date_str(trade_date), sec_codes=sec_codes,
                                                     columns=['ts_code', 'close', 'turnover_rate', 'pe', 'pb',
                                                              'total_mv', 'circ_mv'], is_recur=False)
         end = time.clock()
@@ -131,7 +131,7 @@ class Server(object):
                         self.add_option(key, words, filters)
                         break
         # print(filters)
-        sec_pool = self.data_client.index_weight(index_code=sec_pool_code, trade_date=tool.to_date(trade_dt))['con_code'].tolist()
+        sec_pool = self.data_client.index_weight(index_code=sec_pool_code, trade_date=to_date(trade_dt))['con_code'].tolist()
         fina_data = self.get_fina_data(sec_pool, filters=filters)
         columns = fina_data.columns
         # print(fina_data)
@@ -149,13 +149,30 @@ class Server(object):
         else:
             return fina_data
 
-    def multi_indicator_regression(self):
-        pass
-
     def get_sec_pool(self, pool_list):
         sec_list = self.data_client.get_sec_pool(sec_pool='000016.SH')
         # print(sec_list['list_date'])
         return sec_list
+
+    def backtest(self, sec_pool: dict, **kwargs):
+        strategy = kwargs.get("strategy", None)
+        start_dt = kwargs.get("start_date", None)
+        end_dt = kwargs.get("end_date", None)
+        if strategy is None:
+            raise ParamError("求指定回测策略")
+        if strategy == 'multi_indicator':
+            indicators = kwargs.get("indicators", [])
+            if len(indicators) < 1:
+                raise ParamError("多因子未指定指标")
+        elif strategy == 'single_indicator':
+            indicator = kwargs.get("indicator", None)
+            if indicator is None:
+                raise ParamError("单因子未指定指标")
+            metrics = SingleIndicator(sec_pool=list(sec_pool.keys()), indicator=indicator,
+                                      start_dt=start_dt, end_dt=end_dt, echo_info=2).back_test()
+            return metrics
+        else:
+            raise ParamError("错误或未开发策略： %s" % strategy)
 
     @staticmethod
     def add_option(key: str, words: List[str], filters: dict):
@@ -184,6 +201,7 @@ class Server(object):
 
 
 if __name__ == '__main__':
+    print(os.getcwd())
     # k_data('000001.SZ')
     # 总字典
     # data_client = DataClient()

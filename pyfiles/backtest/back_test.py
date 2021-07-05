@@ -2,14 +2,9 @@
 """
     回测过程
 """
-from pyfiles.strategies.turtle_strategy import *
-from pyfiles.tools import *
-from pyfiles.data_client import DataClient
-from pyfiles.strategies.double_ma_strategy import *
 from pyfiles.strategies.single_indicator import *
 from pyfiles.strategies.multi_indicator import *
 import time
-import os
 
 
 class BackTest(object):

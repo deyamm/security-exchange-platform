@@ -18,3 +18,8 @@ def quant_init():
         return json.dumps(res, ensure_ascii=False)
     else:
         return json.dumps({'status': 'fail'})
+
+
+@quant.route('/index.html')
+def quant_indicator_page():
+    return render_template('quant_indicator.html')

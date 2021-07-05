@@ -15,3 +15,6 @@ ERROR_L1 = 1
 ERROR_L2 = 2
 # 报错等级3，将错误作为异常
 ERROR_L3 = 3
+
+# 项目路径，使用绝对路径来读写文件
+PRO_PATH = '/home/deyam/Stock/project'

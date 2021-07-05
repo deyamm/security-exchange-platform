@@ -1,4 +1,5 @@
-import {addLiEvent} from "./events.js";
+import {addLiEvent, addDropdownBtnEvent} from "./events.js";
+import {removeChild} from "./functions.js";
 
 function StockUnit(stockData) {
     this.stockData = stockData;
@@ -757,8 +758,105 @@ function StockPoolList(containerId, stockPoolTree) {
     };
 }
 
+function StockList(secPool, containerId) {
+    this.secPool = secPool;
+    let container = $(`#${containerId}`);
+
+    StockList.prototype.createPanel = function () {
+        let selectedSec = {};
+        let listTb = document.createElement("table");
+        $(listTb).addClass("table table-striped");
+        let thead = document.createElement("thead");
+        let tbody = document.createElement("tbody");
+        // 表头
+        let headline = document.createElement("tr");
+        let codeHead = document.createElement("th");
+        codeHead.innerHTML = "股票代码";
+        headline.append(codeHead);
+        let nameHead = document.createElement("th");
+        nameHead.innerHTML = "股票名称";
+        headline.append(nameHead);
+        let btnHead = document.createElement("th");
+        let selectAllBtn = document.createElement("button");
+        $(selectAllBtn).prop("selected", 0);
+        selectAllBtn.innerHTML = "全部选择";
+        $(selectAllBtn).click(function () {
+            let btns = $(tbody).find("button");
+            console.log(btns);
+            if ($(this).prop("selected") === 1) {
+                this.innerHTML = "全部选择";
+                $(this).prop("selected", 0);
+                for (let i = 0; i < btns.length; i++) {
+                    if ($(btns[i]).prop("added") === 1) {
+                        //console.log($(btns[i]));
+                        $(btns[i]).click();
+                    }
+                }
+            } else {
+                this.innerHTML = "取消选择";
+                $(this).prop("selected", 1);
+                for (let i = 0; i < btns.length; i++) {
+                    if ($(btns[i]).prop("added") === 0) {
+                        //console.log($(btns[i]));
+                        $(btns[i]).click();
+                    }
+                }
+            }
+        });
+        btnHead.append(selectAllBtn);
+        headline.append(btnHead);
+        thead.append(headline);
+        // 表体
+        for (let i = 0; i < this.secPool.length; i++) {
+            let tr = document.createElement("tr");
+            let sec = this.secPool[i];
+            let code = document.createElement("td");
+            code.innerHTML = sec['ts_code'];
+            tr.append(code);
+            let name = document.createElement("td");
+            name.innerHTML = sec['name'];
+            tr.append(name);
+            let btnTd = document.createElement("td");
+            let btn = document.createElement("button");
+            $(btn).addClass("btn-style-1 glyphicon glyphicon-plus");
+            $(btn).prop("secCode", sec['ts_code']);
+            $(btn).prop("secName", sec['name']);
+            $(btn).prop("added", 0);
+            $(btn).click(function () {
+                console.log($(this).prop("secCode"));
+                if ($(this).prop("added") === 0) {
+                    if (!selectedSec.hasOwnProperty($(this).prop("secCode"))) {
+                        selectedSec[$(this).prop("secCode")] = $(this).prop("secName");
+                    }
+                    $(this).prop("added", 1);
+                    $(this).removeClass("glyphicon-plus");
+                    $(this).addClass("glyphicon-minus");
+                } else if ($(this).prop("added") === 1) {
+                    if (selectedSec.hasOwnProperty($(this).prop("secCode"))) {
+                        delete selectedSec[$(this).prop("secCode")];
+                    }
+                    $(this).prop("added", 0);
+                    $(this).removeClass("glyphicon-minus");
+                    $(this).addClass("glyphicon-plus");
+                } else {
+                    alert("未知状态： " + $(this).prop("added"));
+                }
+                container.prop("selectedSec", selectedSec);
+            });
+            btnTd.append(btn);
+            $(tr).append(code);
+            $(tr).append(name);
+            $(tr).append(btnTd);
+            tbody.append(tr);
+        }
+        listTb.append(thead);
+        listTb.append(tbody);
+        container.append(listTb);
+    }
+}
+
 export {
     StockUnit, DropdownCheckbox, IndicatorDict, OptionUnit,
     TabularStock, StockInfo, Indicator, PageTurn, StockDetail,
-    IndicatorList, StockPoolList
+    IndicatorList, StockPoolList, StockList
 };

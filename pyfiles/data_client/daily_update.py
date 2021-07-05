@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # 在初始化数据的基础上，向数据库中更新数据
-from pyfiles.collect_data.collect_data import *
+from pyfiles.data_client.collect_data import *
 from pyfiles.data_client import DataClient
-from pyfiles.tools import *
+from pyfiles.com_lib.tools import *
 import MySQLdb as sql
 import sqlalchemy as sa
 import pymongo
