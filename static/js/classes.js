@@ -782,7 +782,7 @@ function StockList(secPool, containerId) {
         selectAllBtn.innerHTML = "全部选择";
         $(selectAllBtn).click(function () {
             let btns = $(tbody).find("button");
-            console.log(btns);
+            //console.log(btns);
             if ($(this).prop("selected") === 1) {
                 this.innerHTML = "全部选择";
                 $(this).prop("selected", 0);
@@ -823,7 +823,7 @@ function StockList(secPool, containerId) {
             $(btn).prop("secName", sec['name']);
             $(btn).prop("added", 0);
             $(btn).click(function () {
-                console.log($(this).prop("secCode"));
+                //console.log($(this).prop("secCode"));
                 if ($(this).prop("added") === 0) {
                     if (!selectedSec.hasOwnProperty($(this).prop("secCode"))) {
                         selectedSec[$(this).prop("secCode")] = $(this).prop("secName");

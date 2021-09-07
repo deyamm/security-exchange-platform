@@ -26,7 +26,7 @@ def order(account: AccountInfo, g: GlobalVariable, sec_code: str, price: float, 
         if position is None:
             # 未有该股的持仓，添加该证券的持仓
             new_position = Position(sec_code=sec_code, price=price, amount=amount,
-                                    cash_per=account.portfolio.inout_cash / g.N, dt=to_date_str(account.current_date))
+                                    cash_per=account.portfolio.available_cash / g.N, dt=to_date_str(account.current_date))
             positions.append(new_position)
             # 调整账户资金
             portfolio.trade(sec_code=sec_code, price=price, amount=amount, side='B',

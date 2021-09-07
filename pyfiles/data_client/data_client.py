@@ -168,13 +168,13 @@ class DataClient(object):
         #
         return current_date, previous_date
 
-    def get_sec_pool(self, sec_pool: str or List[str], start_date: datetime.date = None):
+    def get_sec_pool(self, sec_pool: str or List[str], start_date: datetime.date = None) -> pd.DataFrame:
         sec_list = None
         if isinstance(sec_pool, six.string_types) and sec_pool in self.index_basic()['ts_code'].tolist():
             sec_list = self.index_weight(
                 index_code=sec_pool, trade_date=start_date)[['con_code']].rename(columns={"con_code": "ts_code"})
         elif isinstance(sec_pool, list):
-            sec_list = sec_pool
+            sec_list = pd.DataFrame({'ts_code': sec_pool})
         else:
             raise ParamError("sec_pool error")
         stock_basic = self.stock_basic(list_status=None)
@@ -212,12 +212,12 @@ class DataClient(object):
                 query = query + ' and ' + filter_query
             # print('mysql query ', query)
             try:
-                res = self.mysql_client.query(query, return_type='np')
+                res = self.mysql_client.query(query)
             except Exception as e:
                 raise SQLError("未找到%s表，或不存在指定属性" % table_name)
-            print(res)
+            # print(res.values)
             if len(res) > 0:
-                data = pd.concat([data, pd.DataFrame(res, columns=[col[0] for col in self.cursor.description])],
+                data = pd.concat([data, res],
                                  axis=0, ignore_index=True)
             else:
                 if is_recur:
@@ -393,6 +393,8 @@ class DataClient(object):
         :param freq: 数据频率（D/W/M/Y）
         :return: dataframe
         """
+        if 'trade_date' not in columns:
+            columns.insert(0, 'trade_date')
         table_name = index_code[:6] + '_' + fq_trans(freq)
         query = "select %s from indexes.%s where trade_date between '%s' and '%s'" \
                 % (','.join(columns), table_name, start_dt, end_dt)
@@ -421,6 +423,7 @@ class DataClient(object):
         :param dt: 日期
         :return: True/False
         """
+        # print(sec_code)
         query = "select trade_date from %s_daily where trade_date='%s'" % (sec_code[:6], dt)
         re = self.mysql_client.query(query, return_type='np')
         if len(re) == 0:

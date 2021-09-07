@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from opendatatools import swindex
-from pyfiles.com_lib.tools import *
+from pyfiles.com_lib import *
+from pyfiles.data_client.database_client import MySqlServer
 import sqlalchemy as sa
 import pymongo
 import tushare as ts
@@ -288,8 +289,20 @@ def get_backup_dk():
         time.sleep(0.5)
 
 
+def export_data():
+    mysql = MySqlServer(db='moneyflow')
+    tbl_list = mysql.query("show tables", return_type='np').flatten()
+    file_path = PRO_PATH+'/data/moneyflow.txt'
+    for tbl in tbl_list:
+        query = "select * from moneyflow.%s" % tbl
+        print(query)
+        data = mysql.query(query)
+        data.to_csv(file_path, index=False, header=False, mode='a')
+
+
 if __name__ == '__main__':
-    ts.set_token('92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947')
+    # ts.set_token('92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947')
     # get_sw_index()
-    get_fina_data()
+    # get_fina_data()
     # stock_dk()
+    export_data()

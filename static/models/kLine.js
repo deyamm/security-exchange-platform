@@ -4,10 +4,10 @@
  */
 
 function getKLineOption() {
-    var config = {};
+    let config = {};
     config['sec_code'] = '000001.SZ';
-    var option = null;
-    var volume = [];
+    let option = null;
+    let volume = [];
     $.ajax({
         url: "/data/kline",
         type: "POST",
@@ -16,7 +16,7 @@ function getKLineOption() {
         async: false,
         success: function (data) {
             console.log(data);
-            for(var i = 0; i < data['volume'].length; i++){
+            for (let i = 0; i < data['volume'].length; i++) {
                 volume.push([i, data['volume'][i], data['kdata'][i][1] > data['kdata'][i][0] ? 1 : -1]);
             }
             option = {
@@ -115,7 +115,7 @@ function getKLineOption() {
                     pieces: [{
                         value: 1,
                         color: '#ec0000'
-                    },{
+                    }, {
                         value: -1,
                         color: '#00da3c'
                     }]

@@ -191,13 +191,23 @@
         <div id="sec-list"></div>
         <div id="btns-list">
             <button id="gen-seclist-btn">生成股票列表</button>
-            <div id="backtest-date">
+            <form id="backtest-form" class="form-horizontal" role="form">
                 <h3>设置回测日期</h3>
-                <h4>开始日期</h4>
-                <input type="date" id="start-date" value="2020-06-01">
-                <h4>结束日期</h4>
-                <input type="date" id="end-date" value="2021-01-01">
-            </div>
+                <div class="form-group">
+                    <h4>开始日期</h4>
+                    <input type="date" name="start-date" value="2020-07-01">
+                </div>
+                <div class="form-group">
+                    <h4>结束日期</h4>
+                    <input type="date" name="end-date" value="2021-01-01">
+                </div>
+                <div class="form-group">
+                    <h4>本金</h4>
+                    <label>
+                        ￥<input type="text" name="capital" value="100000" style="width: 80%" placeholder="本金金额">
+                    </label>
+                </div>
+            </form>
             <button id="backtest-btn">回测</button>
         </div>
     </div>
@@ -213,6 +223,7 @@
 <script type="module">
     import {stockPoolTree, indicatorTree} from "../static/js/variables.js";
     import {StockPoolList, IndicatorList, StockList} from "../static/js/classes.js";
+    import {drawLine} from "../static/models/line.js";
 
     $("body").height(window.innerHeight);
 
@@ -257,25 +268,40 @@
 
     $("#backtest-btn").click(function () {
         let selectedSec = $("#sec-list").prop("selectedSec");
-        console.log(selectedSec);
+        let backtestParam = getFormParas("backtest-form");
+        //console.log(selectedSec);
+        let backtestConfig = {
+            sec_pool: selectedSec,
+            indicator: "pe_ttm",
+            start_date: backtestParam['start-date'],
+            end_date: backtestParam['end-date'],
+            stragety: "single_indicator",
+            first_in: parseFloat(backtestParam['capitalte'])
+        };
         $.ajax({
             url: "/backtest",
             type: "POST",
-            data: JSON.stringify({
-                sec_pool: selectedSec,
-                indicator: "pe_ttm",
-                start_date: $("#start-date").val(),
-                end_date: $("#end-date").val(),
-                stragety: "single_indicator"
-            }),
+            data: JSON.stringify(backtestConfig),
             dataType: "json",
             success: function (data) {
                 console.log(data);
+                drawLine("backtest-window", data['metrics']);
             }
         })
     });
 
-
+    /**
+     * 获取指定id的表单数据，并返回包含对应内容的对象
+     * @param id str 表单id
+     */
+    function getFormParas(id) {
+        let formValue = $(`#${id}`).serializeArray();
+        let formParas = {};
+        for (let i = 0; i < formValue.length; i++) {
+            formParas[formValue[i]["name"]] = formValue[i]["value"];
+        }
+        return formParas;
+    }
 </script>
 </body>
 </html>

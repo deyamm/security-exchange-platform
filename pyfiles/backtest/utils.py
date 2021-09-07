@@ -43,7 +43,7 @@ class TradeLog(object):
             log_index = log_df.index.tolist()
         else:
             log_index = log_df[log_df['sec_code'] == sec_code].index.tolist()
-        with open(path, 'a') as f:
+        with open(path, 'w') as f:
             for i in log_index:
                 f.write(self.logs[i] + '\n')
 
@@ -108,6 +108,7 @@ class Position(object):
         # 持仓总市值， 目前不是动态变化
         self.total_value = price * self.amount
         # 该持仓可用资金
+        # print(price, amount, self.available_cash)
         self.available_cash = self.available_cash + price * amount * -1
         # 添加交易记录
         # self.log.add_log(sec_code=self.sec_code, side=side, dt=dt,
@@ -270,9 +271,10 @@ class Metrics(object):
         """
         data = data_client.get_index_data(index_code=index_code, columns=['pct_chg'], start_dt=to_date_str(start_dt),
                                           end_dt=to_date_str(end_dt), freq=freq)
-        self.basic_profit_rate.append(0)
+        self.basic_index = index_code
+        self.basic_profit_rate.append(data.loc[0, 'pct_chg'])
         for pct in data.values:
-            self.basic_profit_rate.append(float_precision(self.basic_profit_rate[-1] + pct[0], 4))
+            self.basic_profit_rate.append(float_precision(self.basic_profit_rate[-1] + pct[1], 4))
 
     def add_profit(self, profit: float, dt: str):
         # 添加收益
@@ -312,6 +314,20 @@ class Metrics(object):
 
     def period_profit_rate(self):
         return float_precision(self.float_profit_rate[-1], 2)
+
+    def return_metrics(self):
+        res = dict()
+        res['trade_date'] = self.trade_date
+        res['float_profit'] = self.float_profit
+        res['float_profit_rate'] = self.float_profit_rate
+        res['basic_index'] = self.basic_index
+        res['basic_profit_rate'] = self.basic_profit_rate
+        res['anni_profit_rate'] = self.anni_profit_rate
+        res['alpha'] = self.alpha
+        res['beta'] = self.beta
+        res['max_drawdown_rate'] = self.max_drawdown_rate
+        res['sharpe_ratio'] = self.sharpe_ratio
+        return res
 
 
 class AccountInfo(object):

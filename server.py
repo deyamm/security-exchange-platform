@@ -103,12 +103,16 @@ class Server(object):
         """
         data = dict()
         quant_data = pd.read_csv('./data/quant.csv')
-        index_data = self.data_client.pro.index_daily(ts_code='399300.SZ', start_date='20201201', end_date='20210205',
-                                                      fields="close")
+        # 当积分不足或其他情况导致无法获取数据时，从其他途径获取指数成分
+        try:
+            index_data = self.data_client.pro.index_daily(ts_code='399300.SZ', start_date='20201201',
+                                                          end_date='20210205', fields="close")
+        except Exception:
+            pass
         # print(index_data)
         data['trade_date'] = quant_data['trade_date'].tolist()
         data['indicator_value'] = quant_data['value'].tolist()
-        data['index_data'] = index_data['close'].tolist()
+        # data['index_data'] = index_data['close'].tolist()
         # print(data)
         return data
 
@@ -154,10 +158,13 @@ class Server(object):
         # print(sec_list['list_date'])
         return sec_list
 
-    def backtest(self, sec_pool: dict, **kwargs):
-        strategy = kwargs.get("strategy", None)
+    def backtest(self, kwargs: dict):
+        print(kwargs)
+        sec_pool = kwargs.get("sec_pool", dict())
+        strategy = kwargs.get("stragety", None)
         start_dt = kwargs.get("start_date", None)
         end_dt = kwargs.get("end_date", None)
+        first_in = kwargs.get("first_in", 100000)
         if strategy is None:
             raise ParamError("求指定回测策略")
         if strategy == 'multi_indicator':
@@ -169,7 +176,8 @@ class Server(object):
             if indicator is None:
                 raise ParamError("单因子未指定指标")
             metrics = SingleIndicator(sec_pool=list(sec_pool.keys()), indicator=indicator,
-                                      start_dt=start_dt, end_dt=end_dt, echo_info=2).back_test()
+                                      start_dt=start_dt, end_dt=end_dt, echo_info=2,
+                                      max_position_num=1, first_in=first_in).back_test()
             return metrics
         else:
             raise ParamError("错误或未开发策略： %s" % strategy)

@@ -4,13 +4,13 @@ from flask import render_template
 from flask_cors import CORS
 import json
 from server import Server
-from blueprint import quant, fetch_data
+from blueprint import visualize, fetch_data
 
 app = Flask(__name__)
 CORS(app)
 server = Server()
 
-app.register_blueprint(quant.quant)
+app.register_blueprint(visualize.quant)
 app.register_blueprint(fetch_data.data)
 
 
@@ -74,9 +74,7 @@ def backtest():
     recv = request.get_data()
     if recv:
         recv = json.loads(str(recv, encoding='utf-8'))
-        res = server.backtest(sec_pool=recv['sec_pool'], indicator=recv['indicator'],
-                              start_date=recv['start_date'], end_date=recv['end_date'],
-                              strategy=recv['stragety'])
+        res = server.backtest(recv).return_metrics()
         return json.dumps({'metrics': res, 'status': 'success'})
     else:
         return json.dumps({'stauts': 'fail'})

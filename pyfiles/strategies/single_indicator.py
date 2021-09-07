@@ -37,13 +37,8 @@ class SingleIndicator(Strategy):
     def set_params(self):
         # 股池，待选
         sec_pool = self.kwargs.get("sec_pool", '399300.SZ')
-        if isinstance(sec_pool, six.string_types) and sec_pool in self.data_client.index_basic()['ts_code'].tolist():
-            self.g.sec_pool = self.data_client.pro.index_weight(
-                index_code=sec_pool, trade_date=to_date_str(self.account.current_date, split=''))['con_code'].tolist()
-        elif isinstance(sec_pool, list):
-            self.g.sec_pool = sec_pool
-        else:
-            raise ParamError("sec_pool error: ", sec_pool)
+        self.g.sec_pool = self.data_client.get_sec_pool(sec_pool=sec_pool,
+                                                        start_date=self.account.current_date)['ts_code'].tolist()
         # self.g.sec_pool = ['000001.SZ', '000002.SZ', '000004.SZ', '000005.SZ', '000006.SZ',
         #                    '000007.SZ', '000008.SZ', '000009.SZ', '000010.SZ', '000011.SZ']
         self.g.N = min(self.kwargs.get("max_position_num", 5), len(self.g.sec_pool))  # 持仓个数
@@ -63,7 +58,6 @@ class SingleIndicator(Strategy):
                                                    start_dt=to_date_str(self.account.run_paras['start_date']),
                                                    end_dt=to_date_str(self.account.run_paras['end_date']),
                                                    freq='D', data_client=self.data_client)
-        return
 
     def set_backtest(self):
         return
@@ -84,20 +78,22 @@ class SingleIndicator(Strategy):
                                                    columns=self.g.indicator)
         # 升序排序
         # print(type(indicator_df.loc[0, 'pe_ttm']))
-        indicator_df.sort_values(by=self.g.indicator, axis=0, inplace=True, ascending=False)
-        print(indicator_df)
+        indicator_df = indicator_df.astype({self.g.indicator: 'float'})
+        indicator_df.sort_values(by=self.g.indicator, axis=0, inplace=True)
+        # print(indicator_df)
         # 买入个股
-        target = indicator_df.index[:min(self.g.N, len(indicator_df))].tolist()
-        print(target)
+        target = indicator_df.set_index('ts_code').index[:min(self.g.N, len(indicator_df))].tolist()
+        # print(target)
         for sec_code in target:
             if self.data_client.is_trade(sec_code=sec_code, dt=to_date_str(current_date)):
                 price = self.data_client.get_price(dt=to_date_str(current_date), sec_code=sec_code, price_type='open',
                                                    not_exist='last')
                 position = self.account.has_position(sec_code=sec_code)
                 if position is None:
-                    cash = self.account.portfolio.inout_cash
+                    cash = self.account.portfolio.available_cash
                 else:
                     cash = position.available_cash
+                # print('基准金额: %d' % cash)
                 order(account=self.account, g=self.g, sec_code=sec_code, price=price,
                       amount=cal_stock_amount(price=price, cash=cash), side='B',
                       echo_info=self.backtest_params['echo_info'])

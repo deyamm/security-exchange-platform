@@ -1,8 +1,10 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, render_template
 import json
 from server import Server
 
-quant = Blueprint('quant', __name__, url_prefix='/quant')
+path = 'visualize'
+
+quant = Blueprint(path, __name__, url_prefix='/'+path)
 
 server = Server()
 
@@ -22,4 +24,4 @@ def quant_init():
 
 @quant.route('/index.html')
 def quant_indicator_page():
-    return render_template('quant_indicator.html')
+    return render_template('visualize.html')
