@@ -26,7 +26,8 @@ class DataClient(object):
         passwd = kwargs.get("passwd", 'qq16281091')
         db = kwargs.get("db", 'stock')
         charset = kwargs.get("charset", 'utf8')
-        self.mysql_client = MySqlServer()
+        self.mysql_client = MySqlServer(host=host, user=user, passwd=passwd,
+                                        port=port, db=db, charset=charset)
         self.error_level = kwargs.get("error_level", ERROR_L1)
         # 建立连接
         # self.mongo_client = pymongo.MongoClient(host='localhost', port=27017)

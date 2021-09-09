@@ -6,12 +6,12 @@ from pyfiles.com_lib.variables import *
 def order(account: AccountInfo, g: GlobalVariable, sec_code: str, price: float, amount: int, side: str, **kwargs):
     """
     下单函数
-    :param account:
-    :param g:
-    :param sec_code:
-    :param price:
-    :param amount:
-    :param side:
+    :param account: 账户实例对象
+    :param g: 回测变量
+    :param sec_code: 下单的证券代码
+    :param price: 下单价格
+    :param amount: 下单数量
+    :param side: 买入（B）或卖出（S）
     :return:
     """
     # 持仓 list

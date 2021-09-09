@@ -83,14 +83,19 @@ class IndicatorDict(object):
         return res
 
 
-# 检测是否为字符串
 def is_str(s):
+    """
+    检测传入的参数对象是否为字符串
+    :param s: 待检测的参数对象
+    :return: true/false
+    """
     return isinstance(s, six.string_types)
 
 
 def to_date_str(date, split='-', only_date=False) -> str:
     """
-    将表示时间的datetime对象转化为字符串
+    将表示时间的datetime或date对象转化为指定分隔符的日期字符串，
+    当传入的参数为datetime类型对象时，可以选择只返回日期部分
     :param only_date:
     :param date: 所要转换为字符串的对象
     :param split: 日期字符串的分隔符
@@ -140,8 +145,12 @@ def float_precision(num: float, precision: int) -> float:
     return float(format(num, '.%df' % precision))
 
 
-# 将数据频率转换为表名后缀
 def fq_trans(fq: str):
+    """
+    将代表行情频率的参数（D/W/M/Y）转换为相应频率行情数据的表名后缀
+    :param fq: 代表频率的参数（日D/周W/月M/年Y）
+    :return: 相应频率行情数据的表名后缀
+    """
     t_fq = fq.upper()
     if t_fq == 'D':
         return 'daily'
@@ -155,16 +164,12 @@ def fq_trans(fq: str):
         raise ParamError("数据频率错误（D/W/M/Y）")
 
 
-# 属性名解释
-def attr_explain(attr_name: str):
-    with open('../../data/attr_info.json') as f:
-        name_dict = json.load(f)
-    print(name_dict)
-    return name_dict[attr_name]
-
-
-# 根据日期获取对应季度******************************8
 def get_quarter(date: datetime.date) -> int:
+    """
+    根据传入的日期，获取该日期所在的季度，该日期的格式具有要求
+    :param date: 传入的日期
+    :return: 季度
+    """
     if isinstance(date, str):
         return 0
     elif isinstance(date, datetime.date):
@@ -173,12 +178,26 @@ def get_quarter(date: datetime.date) -> int:
         raise ParamError("传入日期参数类型错误")
 
 
-#
 def cal_stock_amount(price, cash, accuracy=0.000001) -> int:
+    """
+    根据传入的证券购买价格以及可用金额，计算能够购买的最大股数，
+    由于购买时必须以“手”为单位，以及浮点数的计算过程，为了保证结果的正确性，需要特别的计算（1手=100股）
+    :param price: 证券的购买价格
+    :param cash: 可用金额
+    :param accuracy: 在浮点数计算过程中的精确度调整
+    :return:
+    """
     return math.floor(cash / (price * 100) + accuracy) * 100
 
 
 def corr_check(corr_matrix: pd.DataFrame, threshold: float) -> List[str]:
+    """
+    相关性检验，根据传入的dataframe，计算每两个属性之间的相关性，
+    并返回相关性高于指定值的属性名
+    :param corr_matrix: 待计算的dataframe
+    :param threshold: 指定的阈值
+    :return: list，列表中各属性之间的相关性高于指定的值
+    """
     columns = corr_matrix.columns.tolist()
     redundance_indicator = []
     for i in range(len(columns)):

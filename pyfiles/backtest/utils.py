@@ -24,6 +24,17 @@ class TradeLog(object):
         pass
 
     def add_log(self, sec_code, side, dt, price, amount, money, available_cash):
+        """
+        向不同的成员变量中添加相应格式的log，包括自然语言形式以及dataframe形式
+        :param sec_code: log的证券代码
+        :param side: 交易的类别，买入（B）或者卖出（S）
+        :param dt: 交易日期
+        :param price: 交易价格
+        :param amount: 交易数据
+        :param money: 交易金额
+        :param available_cash: 交易完成后账户内可用资金
+        :return:
+        """
         if side == 'B':
             single_log = "日期：%s，买入证券%s共%d股，买入价格%f，共%f元，当前账户剩余资金%f" \
                          % (dt, sec_code, amount, price, money, available_cash)
@@ -37,6 +48,13 @@ class TradeLog(object):
                                    'amount': amount, 'money': money, 'available_cash': available_cash})
 
     def save_log(self, path, sec_code=None):
+        """
+        将成员变量中的log保存到本地文件中，
+        由于成员变量中可能会有多支证券的log，所以可以通过sec_code参数指定具体证券
+        :param path: 文件路径
+        :param sec_code: 所要保存log的指定证券代码，
+        :return:
+        """
         log_df = pd.DataFrame(self.log_dict_list)
         # print(log_df)
         if sec_code is None:
@@ -49,6 +67,10 @@ class TradeLog(object):
 
 
 class GlobalVariable:
+    """
+    回测过程中使用的回测变量
+    """
+
     def __init__(self):
         self.indicator = None
         self.N = None
@@ -61,6 +83,7 @@ class Position(object):
     """
     持仓类，每一个实例代表一支股票的持仓
     """
+
     sec_code = None  # 标的代码
     price = 0  # 最新行情价格
     amount = 0  # 持仓数量
@@ -89,6 +112,14 @@ class Position(object):
         self.trade(price=price, amount=amount, side='B', dt=dt)
 
     def trade(self, price: float, amount: int, side: str, dt: str):
+        """
+        单个持仓的交易方法，对该持仓实例进行买入或卖出操作，并更新相应的成员变量
+        :param price: 交易价格
+        :param amount: 交易数量
+        :param side: 交易类别，买入（B）或卖出（S）
+        :param dt: 交易日期，用于添加log
+        :return:
+        """
         if side == 'B':
             amount = 1 * amount
         elif side == 'S':
@@ -115,6 +146,12 @@ class Position(object):
         #                  price=price, amount=amount, money=price* amount, available_cash=self.available_cash)
 
     def daily_update(self, dt: str, data_client: DataClient):
+        """
+        每个交易日结束后，将指定的成员变量进行更新，比如可用数量（指可以卖出的证券数量）等
+        :param dt:
+        :param data_client:
+        :return:
+        """
         # 将价格更新为当天收盘价
         self.price = data_client.get_price(dt, self.sec_code, 'close', 'last')
         # 更新单支证券持仓市值
@@ -127,7 +164,7 @@ class Position(object):
     def clear(self, price: float, portfolio, dt: str):
         """
         按指定价格清空该持仓
-        :param dt:
+        :param dt: 清仓日期，用于添加log
         :param portfolio: 资金账户
         :param price: 清仓价
         :return:
@@ -139,7 +176,7 @@ class Position(object):
 
 class Portfolio(object):
     """
-    资金账户
+    资金账户，为整个账户提供资金处理功能，比如转入转出金额、交易后对资金的更新的
     """
     inout_cash = 0  # 累计出入金，转入转出账户的累计资金
     available_cash = 0  # 可用资金，可以用来购买证券的资金
@@ -183,10 +220,10 @@ class Portfolio(object):
     def trade(self, sec_code: str, price: float, amount: int, side: str, dt: str):
         """
         购买或卖出证券时对资金进行调整
-        :param dt:
-        :param amount:
-        :param price:
-        :param sec_code:
+        :param dt: 交易日期，用于添加log
+        :param amount: 交易数据
+        :param price: 交易价格
+        :param sec_code: 交易的证券代码
         :param side: str 购买或卖出，B表示买入证券，S表示卖出证券
         :return:
         """
@@ -216,6 +253,12 @@ class Portfolio(object):
             raise ParamError("参数错误（B/S）")
 
     def daily_update(self, positions: List[Position]):
+        """
+        在每个交易日结束后对指定的成员变量进行更新，比如可取资金等，
+        并对账户中的各个持仓进行更新
+        :param positions: 需要更新的持仓list
+        :return:
+        """
         # 更新持仓总市值
         self.sec_value = 0
         for position in positions:
@@ -235,7 +278,7 @@ class Portfolio(object):
 
 class Metrics(object):
     """
-    需要计算的各个指标
+    用于记录回测结果的各项指标
     """
     float_profit = []  # 浮盈/浮亏
     float_profit_rate = []  # 浮盈/亏率
@@ -262,11 +305,11 @@ class Metrics(object):
     def set_basic_profit_rate(self, index_code: str, start_dt: str, end_dt: str, freq: str, data_client: DataClient):
         """
         设置基准收益率
-        :param index_code:
-        :param start_dt:
-        :param end_dt:
-        :param freq:
-        :param data_client:
+        :param index_code: 指数代码
+        :param start_dt: 开始时期
+        :param end_dt: 结束日期
+        :param freq: 获取行情数据的频率（D/W/M）
+        :param data_client: 数据客户端接口，用于从数据库中获取数据
         :return:
         """
         data = data_client.get_index_data(index_code=index_code, columns=['pct_chg'], start_dt=to_date_str(start_dt),
@@ -277,6 +320,12 @@ class Metrics(object):
             self.basic_profit_rate.append(float_precision(self.basic_profit_rate[-1] + pct[1], 4))
 
     def add_profit(self, profit: float, dt: str):
+        """
+        添加回测开始到指定日期的收益率（<1.0》）
+        :param profit: 收益率
+        :param dt: 指定的日期
+        :return:
+        """
         # 添加收益
         self.float_profit.append(float_precision(profit, 2))
         # 添加当天日期
@@ -313,9 +362,17 @@ class Metrics(object):
                 self.max_drawdown_rate = float_precision(max_profit - rate, 2)
 
     def period_profit_rate(self):
+        """
+        获取整次回测的收益率
+        :return:
+        """
         return float_precision(self.float_profit_rate[-1], 2)
 
     def return_metrics(self):
+        """
+        返回本次回测的各项指标
+        :return: dict
+        """
         res = dict()
         res['trade_date'] = self.trade_date
         res['float_profit'] = self.float_profit
@@ -332,7 +389,7 @@ class Metrics(object):
 
 class AccountInfo(object):
     """
-    总账户
+    总账户类，每次回测对应一个实例对象，负责整个回测过程的数据记录，包括资金操作、持仓操作以及回测指标的记录等。
     """
     portfolio: Portfolio = None  # 资金账户
     current_date: datetime.date = None  # 账户当前的日期

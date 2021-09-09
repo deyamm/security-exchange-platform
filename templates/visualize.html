@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>多空因子指标</title>
+    <link rel="stylesheet" type="text/css" href="/static/css/search.css">
+    <link rel="stylesheet" href="/static/bootstrap3.3.7/css/bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="/static/css/layout.css">
+    <style type="text/css">
+        #list-div {
+            background: #f7f7f7;
+            padding: 30px;
+        }
+        #chief-indicator-chart {
+            width: 600px;
+            height: 400px;
+        }
+    </style>
+</head>
+<body>
+<div id="leadline">
+    <div class="headline-text">
+        多空因子指标
+    </div>
+</div>
+<div id="option-div">
+    <div id="search-div" class="col-sm-offset-3 col-sm-6">
+        <input id="search-input" type="text" autocomplete="off" name="searchInput" placeholder="关键词">
+        <button class="glyphicon glyphicon-search"></button>
+    </div>
+</div>
+<div id="list-div">
+    <div id="chief-indicator-div">
+        <h2>多空因子</h2>
+        <div id="chief-indicator-chart"></div>
+    </div>
+</div>
+    <script src="/static/lib/jquery-1.11.0.min.js" type="text/javascript"></script>
+    <script src="/static/echarts/dist/echarts.js" type="text/javascript"></script>
+    <script src="/static/bootstrap3.3.7/js/bootstrap.js" type="text/javascript"></script>
+    <script type="text/javascript">
+        $("body").height(window.innerHeight);
+        $.ajax({
+            url: "/visualize/init",
+            type: "POST",
+            data: JSON.stringify({}),
+            dataType: "json",
+            success: function (data) {
+                console.log(data);
+                let option = {
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'cross',
+                            crossStyle: {
+                                color: '#999'
+                            }
+                        }
+                    },
+                    toolbox: {
+                        feature: {
+                            dataView: {
+                                show: true,
+                                readOnly: false
+                            },
+                            magicType: {
+                                show: true,
+                                type: ['line', 'bar']
+                            },
+                            restore: {
+                                show: true
+                            },
+                            saveAsImage: {
+                                show: true
+                            }
+                        }
+                    },
+                    legend: {
+                        data: ['多空因子', '沪深300']
+                    },
+                    xAxis: [
+                        {
+                            type: 'category',
+                            data: data['trade_date'],
+                            axisPointer: {
+                                type: 'shadow'
+                            }
+                        }
+                    ],
+                    yAxis: [
+                        {
+                            type: 'value',
+                            name: '多空因子',
+                            scale: true,
+                            min: -30,
+                            max: 30,
+                            interval: 10,
+
+                        },
+                        {
+                            type: 'value',
+                            name: '沪深300',
+                            scale: true,
+                            splitLine: {
+                                show: false
+                            }
+                        }
+                    ],
+                    series: [
+                        {
+                            name: '多空因子',
+                            type: 'bar',
+                            data: data['indicator_value'],
+                            markLine: {
+                                symbol: 'none',
+                                data: [
+                                    {
+                                        silent: true,
+                                        lineStyle: {
+                                            type: 'solid',
+                                            color: '#3398DB'
+                                        },
+                                        yAxis: -20
+                                    },
+                                    {
+                                        silent: true,
+                                        lineStyle: {
+                                            type: 'solid',
+                                            color: '#FA3934'
+                                        },
+                                        yAxis: -26
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            name: '沪深300',
+                            type: 'line',
+                            yAxisIndex: 1,
+                            data: data['index_data']
+                        }
+                    ]
+                };
+                let chart = echarts.init(document.getElementById("chief-indicator-chart"));
+                chart.setOption(option);
+            }
+        })
+    </script>
+</body>
+</html>

@@ -20,9 +20,9 @@ def index():
     # return 'index.html'
 
 
-@app.route('/stragety_list.html')
+@app.route('/page_list.html')
 def stragety_list_page():
-    return render_template('stragety_list.html')
+    return render_template('page_list.html')
 
 
 @app.route('/stock_list.html')
