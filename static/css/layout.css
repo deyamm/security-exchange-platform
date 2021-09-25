@@ -33,34 +33,6 @@ body, html {
 }
 
 /******************stock_list.html*************************/
-#dropdown-div {
-    position: absolute;
-    display: none;
-    background: #9acfea;
-    width: 200px;
-    border-radius: 20px;
-}
-
-#dropdown-close {
-    position: absolute;
-    right: 10px;
-    top: 10px;
-    outline: none;
-    border: none;
-    color: #d9edf7;
-    background: rgba(255, 255, 255, 0);
-}
-
-#dropdown-close:hover {
-    color: #0f0f0f;
-}
-
-.dropdown-btns {
-    position: absolute;
-    top: 80px;
-    height: 20px;
-    right: 10px;
-}
 
 #option-add-btn {
     float: left;
@@ -106,26 +78,70 @@ body, html {
 #option-select-div {
     display: none;
     position: absolute;
-    top: 200px;
-    left: 800px;
-    width: 200px;
-    background: #d9edf7;
+    top: 75px;
+    left: 50%;
+    width: 400px;
+    /*width: 200px;
+    background: #f7f7f7;*/
     z-index: 2;
-    padding: 16px;
+    padding: 10px;
 }
 
 #option-select-div button {
     font-size: 20px;
 }
 
-#option-select-div p {
-    font-size: 30px;
-}
-
 #option-select {
     margin-bottom: 10px;
     font-size: 16px;
     height: 30px;
+}
+
+.stock-unit-lg {
+    background: #ffffff;
+    height: 100px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px #2aabd2 inset;
+}
+
+.stock-code-lg {
+    position: relative;
+    top: 5px;
+    font-size: 20px;
+    color: #2aabd2;
+}
+
+.stock-name-lg {
+    position: relative;
+    font-size: 20px;
+    color: #2aabd2;
+}
+
+.stock-price-lg {
+    position: relative;
+    font-size: 16px;
+    color: #2aabd2;
+    margin: 0;
+}
+
+.stockinfo-div {
+    float: left;
+    margin-right: 10px;
+}
+
+.indicator-div {
+    float: left;
+}
+
+.indicator-name {
+    float: left;
+    margin: 5px;
+}
+
+.indicator-value {
+    float: left;
+    margin: 5px;
+    color: #2aabd2;
 }
 
 .btn-style-1 {
@@ -137,4 +153,8 @@ body, html {
 
 .btn-style-1:hover {
     color: #265a88;
+}
+
+.btn-style-1:disabled {
+    color: #d8d0d0;
 }

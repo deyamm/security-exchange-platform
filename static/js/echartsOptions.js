@@ -1,8 +1,15 @@
+/**
+ * echarts k线图
+ * @param data，
+ * @returns
+ */
 function getKlineOption(data) {
     let dates = data['date'];
     let kdata = data['kdata'];
     let volumes = data['volumes'];
-    let option = {
+    let downColor = '#00da3c';
+    let upColor = '#ec0000';
+    return {
         animation: false,
         legend: { // 图例
             data: ['日k', 'MA5', 'MA10', 'MA20', 'MA30'],
@@ -237,7 +244,179 @@ function getKlineOption(data) {
             }
         ]
     };
-    return option;
 }
 
-export {getKlineOption};
+/**
+ * 申万一级行业涨跌幅热力图
+ * 数据格式：x轴：日期数组；y轴：行业数组，
+ * 涨跌幅数据：3*n数组
+ * @param data
+ */
+function getHeatmapOption(data) {
+    let horizon = data['trade_date'];
+    let vertical = data['industry'];
+    let heatmapData = data['heatmap'];
+    return {
+        tooltip: {
+            position: 'top',
+            formatter: function (params) {
+                //console.log(params['data']);
+                let cell = params['data'];
+                return [
+                    '行业： ' + vertical[cell[1]] + '<br>',
+                    '日期： ' + horizon[cell[0]] + '<br>',
+                    '涨跌幅： ' + cell[2] + '<br>'
+                ].join('');
+            }
+        },
+        grid: {
+            height: '80%',
+            top: '5%'
+        },
+        xAxis: {
+            type: 'category',
+            data: horizon,
+            splitArea: {
+                show: true
+            }
+        },
+        yAxis: {
+            type: 'category',
+            data: vertical,
+            splitArea: {
+                show: true
+            }
+        },
+        visualMap: {
+            min: -10,
+            max: 10,
+            calculable: true,
+            orient: 'horizontal',
+            left: 'center',
+            bottom: '5%',
+            inRange: {
+                color: ['rgba(0, 0, 255, 1)', 'rgba(255, 255, 255, 1)', 'rgba(255, 0, 0, 1)']
+            }
+        },
+        series: [{
+            name: '申万一级行业涨幅热力图',
+            type: 'heatmap',
+            data: heatmapData,
+            label: {
+                //show: true
+            },
+            emphasis: {
+                itemStyle: {
+                    shadowBlur: 100,
+                    shadowColor: 'rgba(0, 0, 0, 0.5)'
+                }
+            }
+        }]
+    };
+}
+
+/**
+ * 多空因子图、柱状及折线图
+ * @param data: object，data['trade_date']: 日期，只包括交易日
+ *                      data['indicator_value']: 多空因子值
+ *                      data['index_value']: 基准指数收盘人价
+ * @returns
+ */
+function getQuantOption(data) {
+    return {
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+                type: 'cross',
+                crossStyle: {
+                    color: '#999'
+                }
+            }
+        },
+        toolbox: {
+            feature: {
+                dataView: {
+                    show: true,
+                    readOnly: false
+                },
+                magicType: {
+                    show: true,
+                    type: ['line', 'bar']
+                },
+                restore: {
+                    show: true
+                },
+                saveAsImage: {
+                    show: true
+                }
+            }
+        },
+        legend: {
+            data: ['多空因子', '沪深300']
+        },
+        xAxis: [
+            {
+                type: 'category',
+                data: data['trade_date'],
+                axisPointer: {
+                    type: 'shadow'
+                }
+            }
+        ],
+        yAxis: [
+            {
+                type: 'value',
+                name: '多空因子',
+                scale: true,
+                min: -30,
+                max: 30,
+                interval: 10,
+
+            },
+            {
+                type: 'value',
+                name: '沪深300',
+                scale: true,
+                splitLine: {
+                    show: false
+                }
+            }
+        ],
+        series: [
+            {
+                name: '多空因子',
+                type: 'bar',
+                data: data['indicator_value'],
+                markLine: {
+                    symbol: 'none',
+                    data: [
+                        {
+                            silent: true,
+                            lineStyle: {
+                                type: 'solid',
+                                color: '#3398DB'
+                            },
+                            yAxis: -20
+                        },
+                        {
+                            silent: true,
+                            lineStyle: {
+                                type: 'solid',
+                                color: '#FA3934'
+                            },
+                            yAxis: -26
+                        }
+                    ]
+                }
+            },
+            {
+                name: '沪深300',
+                type: 'line',
+                yAxisIndex: 1,
+                data: data['index_data']
+            }
+        ]
+    };
+}
+
+export {getKlineOption, getHeatmapOption, getQuantOption};

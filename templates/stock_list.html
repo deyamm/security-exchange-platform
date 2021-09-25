@@ -7,66 +7,9 @@
     <link rel="stylesheet" href="/static/bootstrap3.3.7/css/bootstrap.css">
     <link rel="stylesheet" type="text/css" href="/static/css/layout.css">
     <link rel="stylesheet" type="text/css" href="/static/font-awesome/css/font-awesome.css">
+    <link rel="stylesheet" type="text/css" href="/static/lib/cs/css/cs-select.css">
+    <link rel="stylesheet" type="text/css" href="/static/lib/cs/css/cs-skin-elastic.css">
     <style type="text/css">
-        #search-div {
-            top: 10%;
-        }
-
-        #search-div button {
-            color: #999999;
-        }
-
-        #list-content {
-            padding: 5px;
-        }
-
-        .stock-unit-lg {
-            background: #ffffff;
-            height: 100px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px #2aabd2 inset;
-        }
-
-        .stock-code-lg {
-            position: relative;
-            top: 5px;
-            font-size: 20px;
-            color: #2aabd2;
-        }
-
-        .stock-name-lg {
-            position: relative;
-            font-size: 20px;
-            color: #2aabd2;
-        }
-
-        .stock-price-lg {
-            position: relative;
-            font-size: 16px;
-            color: #2aabd2;
-            margin: 0;
-        }
-
-        .stockinfo-div {
-            float: left;
-            margin-right: 10px;
-        }
-
-        .indicator-div {
-            float: left;
-        }
-
-        .indicator-name {
-            float: left;
-            margin: 5px;
-        }
-
-        .indicator-value {
-            float: left;
-            margin: 5px;
-            color: #2aabd2;
-        }
-
 
         .page-btn {
             outline: none;
@@ -77,12 +20,10 @@
             border-radius: 3px;
         }
 
-
         .page-btn:disabled {
             background-color: #eeeeee;
             color: #999999;
         }
-
 
         .selected-page-btn {
             background-color: #337ab7;
@@ -96,29 +37,49 @@
             height: 50px;
         }
 
-        #list-tbl {
-            margin-left: 20px;
-        }
-
-        #list-tbl th, td {
-
-        }
-
-        #list-tbl button {
-
-        }
-
         #page-turn-div {
             position: absolute;
             bottom: 100px;
         }
 
-        .pages-div {
-            float: left;
+        #dropdown-div {
+            position: absolute;
+            display: none;
+            background: #fff;
+            width: 200px;
+            border-radius: 20px;
+            border: #265a88 2px solid;
+            padding: 4px;
         }
 
-        .jump-div {
-            float: right;
+        #dropdown-option input{
+            margin-right: 8px;
+            width: 1em;
+            height: 1em;
+        }
+        #dropdown-option input:hover{
+            box-shadow: ;
+        }
+
+        #dropdown-close {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            outline: none;
+            border: none;
+            color: #d9edf7;
+            background: rgba(255, 255, 255, 0);
+        }
+
+        #dropdown-close:hover {
+            color: #0f0f0f;
+        }
+
+        .dropdown-btns {
+            position: absolute;
+            top: 80px;
+            height: 20px;
+            right: 10px;
         }
 
     </style>
@@ -131,9 +92,9 @@
 </div>
 <div id="option-div">
     <div class="row">
-        <div id="search-div" class="col-sm-offset-3 col-sm-6">
+        <div id="search-div" class="col-sm-offset-3 col-sm-6" style="top: 10%">
             <input id="search-input" type="text" autocomplete="off" name="searchInput" placeholder="关键词">
-            <button class="glyphicon glyphicon-search btn-style-1"></button>
+            <button class="glyphicon glyphicon-search btn-style-1" style="color: #999"></button>
         </div>
     </div>
     <div id="option-area">
@@ -160,45 +121,48 @@
         <button id="option-search-btn" class="glyphicon glyphicon-search btn-style-1"></button>
         <button id="option-add-btn" class="glyphicon glyphicon-plus-sign btn-style-1"></button>
         <button id="list-method-btn" class="glyphicon glyphicon-th-large btn-style-1"></button>
-        <div id="option-select-div" class="container">
-            <div class="row" style="text-align: center">
-                <p class="col-sm-12">选择指标</p>
+        <div id="option-select-div" class="panel panel-primary">
+            <div class="panel-heading">
+                <h3 class="panel-title">选择指标</h3>
             </div>
-            <div class="row">
-                <select id="option-select" class="col-sm-offset-2 col-sm-8">
-                    <option value="roe">净资产收益率（roe）</option>
-                    <option value="pb">市净率（pb）</option>
-                    <option value="pe">市盈率（pe）</option>
-                </select>
-            </div>
-            <div class="row">
+            <div class="panel-body">
+                <section>
+                    <select id="option-select" class="cs-select cs-skin-elastic col-sm-8">
+                        <option value="roe" selected>净资产收益率（roe）</option>
+                        <option value="pb">市净率（pb）</option>
+                        <option value="pe">市盈率（pe）</option>
+                    </select>
+                </section>
                 <button id="select-ok-btn"
                         class="col-sm-offset-1 col-sm-5 glyphicon glyphicon-ok-circle btn-style-1"></button>
                 <button id="select-cancel-btn"
                         class="col-sm-5 glyphicon glyphicon-remove-circle btn-style-1"></button>
             </div>
+            <div class="panel-footer"></div>
         </div>
     </div>
 </div>
 <div id="list-div">
-    <div id="list-content"></div>
+    <div id="list-content" style="padding: 5px"></div>
     <div id="page-turn-div"></div>
     <div id="dropdown-div"></div>
 </div>
 <script src="/static/lib/jquery-1.11.0.min.js" type="text/javascript"></script>
 <script src="/static/echarts/dist/echarts.js" type="text/javascript"></script>
 <script src="/static/bootstrap3.3.7/js/bootstrap.js" type="text/javascript"></script>
+<script src="/static/lib/cs/js/classie.js" type="text/javascript"></script>
+<script src="/static/lib/cs/js/selectFx.js" type="text/javascript"></script>
 <script type="module">
     //var myChart = echarts.init(document.getElementById('main'));
     import {stockListEvents} from "../static/js/events.js";
-    import {StockDetail, IndicatorDict} from "../static/js/classes.js";
+    import {StockDetail, IndicatorDict, TabularStock} from "../static/js/classes.js";
     import {LIST_LARGE, LIST_SMALL} from "../static/js/variables.js";
     import {removeChild} from "../static/js/functions.js";
 
     let dataset = null;
     stockListEvents();
     $.ajax({
-        url: "/stock_pick/init",
+        url: "/stock_filter/init",
         type: "POST",
         data: JSON.stringify({
             sec_codes: ['000001.SZ', '000002.SZ', '000004.SZ', '000005.SZ', '000006.SZ']
@@ -215,6 +179,12 @@
     });
 
     let indicatorDict = new IndicatorDict();
+
+    (function () {
+        [].slice.call(document.querySelectorAll('select.cs-select')).forEach(function (el) {
+            new SelectFx(el);
+        });
+    })();
 
     $("#option-search-btn").click(function () {
         //console.log("search");
@@ -233,20 +203,20 @@
         }
         //console.log(options);
         $.ajax({
-            url: "/stock_pick/search",
+            url: "/stock_filter/search",
             type: "POST",
             data: JSON.stringify({
                 options: options
             }),
             dataType: "json",
             success: function (data) {
-                console.log(data);
+                //console.log(data);
                 dataset = data;
                 removeChild("list-content");
                 let listMethod = $("#list-method-btn").prop("list-method");
-                if (listMethod == LIST_LARGE) {
+                if (listMethod === LIST_LARGE) {
                     new StockDetail(data).createPanel();
-                } else if (listMethod == LIST_SMALL) {
+                } else if (listMethod === LIST_SMALL) {
                     document.getElementById("list-content").append(new TabularStock(data).createPanel());
                 } else {
                     console.log(typeof (listMethod));
@@ -254,6 +224,29 @@
                 }
             }
         });
+    });
+
+    /**
+     * 排列方式选择按钮，用于改变个股的排列方式
+     * 目前有两种形式，一种是以每支股票为一单元的详细信息，另一种是表格形式
+     */
+    $("#list-method-btn").click(function () {
+        let listMethod = $(this).prop("list-method");
+        if (listMethod === LIST_LARGE) {// 瘵详细信息排列转换为表格排列
+            $(this).prop("list-method", LIST_SMALL);
+            $(this).addClass("glyphicon-th-list");
+            $(this).removeClass("glyphicon-th-large");
+            removeChild("list-content");
+            $("#list-content").append(new TabularStock(dataset).createPanel());
+        } else if (listMethod === LIST_SMALL) { // 将表格排列转换为详细信息排列
+            $(this).prop("list-method", LIST_LARGE);
+            $(this).addClass("glyphicon-th-large");
+            $(this).removeClass("glyphicon-th-list");
+            removeChild("list-content");
+            new StockDetail(dataset).createPanel();
+        } else {
+            alert("未知排列方式" + listMethod);
+        }
     });
 
 </script>

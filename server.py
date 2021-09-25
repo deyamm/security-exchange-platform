@@ -6,6 +6,7 @@ from pyfiles.data_client import DataClient, MySqlServer
 from pyfiles.strategies.single_indicator import SingleIndicator
 from pyfiles.com_lib.exceptions import *
 from typing import List
+from opendatatools import swindex
 import json
 import time
 import os
@@ -15,11 +16,13 @@ class Server(object):
     mysql = MySqlServer()
     data_client = DataClient()
     basic_info = BasicInfo(mysql)
-    
+
     def k_data(self, sec_code: str, **kwargs):
         """
-        :param sec_code:
-        :param kwargs:
+        获取指定证券的k线数据，
+        作为可选参数，可以指定开始日期、结束日期、均线、行情数据频率
+        :param sec_code: 目标证券代码
+        :param kwargs: 可选参数
         :return: k线数据：[开盘, 收盘, 最低, 最高]
         """
         # 存储绘制k线图的数据
@@ -49,6 +52,10 @@ class Server(object):
 
     @staticmethod
     def get_profit_line():
+        """
+        以默认的设置进行回测并获取结束
+        :return: dict，包括收益率曲线、交易日期、基准收益率曲线、夏普比率、最大回测
+        """
         indicator = BackTest().back_test()
         res = dict()
         res['profit_line'] = indicator.float_profit_rate
@@ -60,6 +67,12 @@ class Server(object):
         return res
 
     def get_fina_data(self, sec_codes, **kwargs):
+        """
+        根据筛选条件，从所给证券列表中符合筛选条件的行情数据
+        :param sec_codes: 所提供的证券列表
+        :param kwargs: 可选参数，包括筛选条件、交易日期，筛选条件可以为空
+        :return: 符合筛选条件的证券行情数据
+        """
         start = time.clock()
         filters = kwargs.get("filters", {})
         trade_date = to_date(kwargs.get("trade_dt", '2019-12-31'))
@@ -67,17 +80,20 @@ class Server(object):
         print("查询日期：%s" % to_date_str(trade_date))
         # print(filters)
         # sec_codes = ['000001.SZ', '000002.SZ']
+        # 根据财务筛选条件获取财务数据
         if filters.get("fina_indi") is not None:
             fina_data = self.data_client.get_fina_list(sec_codes=sec_codes, columns=[], year=trade_date.year,
                                                        quarter=get_quarter(trade_date), filters=filters['fina_indi'])
         else:
             fina_data = self.data_client.get_fina_list(sec_codes=sec_codes, columns=[], year=trade_date.year,
                                                        quarter=get_quarter(trade_date))
+        # 获取证券名称
         stock_basic = self.data_client.stock_basic(list_status=None)
         stock_basic.set_index(keys='ts_code', inplace=True)
         # print(fina_data[['ts_code', 'roe']])
         fina_data['name'] = stock_basic.loc[fina_data['ts_code'], 'name'].values
         # print(stock_basic)
+        # 获取符合条件的行情数据
         if filters.get("kline") is not None:
             indicator = self.data_client.get_k_data(dt=to_date_str(trade_date), sec_codes=sec_codes,
                                                     columns=['ts_code', 'close', 'turnover_rate', 'pe', 'pb',
@@ -90,10 +106,13 @@ class Server(object):
         end = time.clock()
         # print(len(fina_data['ts_code']))
         # print(len(indicator['ts_code']))
+        # 将财务数据与行情数据搜狗拼音
         res = pd.merge(fina_data, indicator, on='ts_code', how='inner')
+        # res['close'] = round(res['close'], 2)
         print("结果数： %d" % len(res))
-        print("查询时间%s秒" % (end-start))
-        # print(res[['ts_code', 'roe', 'pb']])
+        print("查询时间%s秒" % (end - start))
+        res['close'] = round(res['close'], 2)
+        # print(res[['ts_code', 'close']])
         return res
 
     def get_quant_data(self):
@@ -102,21 +121,59 @@ class Server(object):
         :return:
         """
         data = dict()
-        quant_data = pd.read_csv('./data/quant.csv')
+        quant_data = pd.read_csv(PRO_PATH + '/data/quant.csv')
         # 当积分不足或其他情况导致无法获取数据时，从其他途径获取指数成分
-        try:
-            index_data = self.data_client.pro.index_daily(ts_code='399300.SZ', start_date='20201201',
-                                                          end_date='20210205', fields="close")
-        except Exception:
-            pass
+        quant_data.sort_values(by='trade_date', inplace=True)
+        # quant_data[['trade_date', 'value']].to_csv(PRO_PATH + '/data/quantt.csv', index=False)
+        # print(quant_data)
+        start_dt = to_date(quant_data.loc[0, 'trade_date'], '/').isoformat()
+        end_dt = to_date(quant_data.loc[len(quant_data) - 1, 'trade_date'], '/').isoformat()
+        # print(start_dt, end_dt)
+        index_data = self.data_client.get_index_data(index_code='399300.SZ', columns=['close'],
+                                                     start_dt=start_dt, end_dt=end_dt, freq='D')
         # print(index_data)
         data['trade_date'] = quant_data['trade_date'].tolist()
         data['indicator_value'] = quant_data['value'].tolist()
-        # data['index_data'] = index_data['close'].tolist()
+        data['index_data'] = index_data['close'].tolist()
         # print(data)
         return data
 
+    @staticmethod
+    def get_heatmap_data():
+        data = dict()
+        #
+        index_list, msg = swindex.get_index_list()
+        days_delta = 30
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=days_delta)
+        l1_industry = index_list[index_list['section_name'] == '一级行业'].set_index(keys='index_code')
+        l1_codes = l1_industry.index.tolist()
+        #
+        data['trade_date'] = None
+        data['industry'] = l1_industry['index_name'].tolist()
+        data['heatmap'] = []
+        #
+        for i in range(0, len(l1_codes)):
+            kdaily, msg = swindex.get_index_daily(index_code=l1_codes[i], start_date=start_date.isoformat(),
+                                                  end_date=end_date.isoformat())
+            kdaily.sort_values(by='date', inplace=True)
+            kdaily['ver_range'] = [i] * len(kdaily)
+            kdaily['hor_range'] = range(0, len(kdaily))
+            if data['trade_date'] is None:
+                data['trade_date'] = kdaily['date'].map(lambda x: to_date_str(x, only_date=True)).tolist()
+            # data[l1_codes[i]] = dict()
+            # data[l1_codes[i]]['index_name'] = l1_industry.loc[l1_codes[i], 'index_name']
+            t = kdaily[['hor_range', 'ver_range', 'change_pct']].values.tolist()
+            # print(t)
+            data['heatmap'].extend(t)
+        return data
+
     def sec_filter(self, options: List[str]):
+        """
+        将网页中设置的筛选条件处理为可以由数据库处理的格式
+        :param options: 网页中设置的筛选条件
+        :return: dict
+        """
         # print(options)
         filters = dict()
         sec_pool_code = '399300.SZ'
@@ -135,7 +192,8 @@ class Server(object):
                         self.add_option(key, words, filters)
                         break
         # print(filters)
-        sec_pool = self.data_client.index_weight(index_code=sec_pool_code, trade_date=to_date(trade_dt))['con_code'].tolist()
+        sec_pool = self.data_client.index_weight(index_code=sec_pool_code, trade_date=to_date(trade_dt))[
+            'con_code'].tolist()
         fina_data = self.get_fina_data(sec_pool, filters=filters)
         columns = fina_data.columns
         # print(fina_data)
@@ -158,7 +216,8 @@ class Server(object):
         # print(sec_list['list_date'])
         return sec_list
 
-    def backtest(self, kwargs: dict):
+    @staticmethod
+    def backtest(kwargs: dict):
         print(kwargs)
         sec_pool = kwargs.get("sec_pool", dict())
         strategy = kwargs.get("stragety", None)
@@ -184,6 +243,13 @@ class Server(object):
 
     @staticmethod
     def add_option(key: str, words: List[str], filters: dict):
+        """
+        向filters参数中添加可能由数据库处理的筛选条件
+        :param key: 条件类别，包括行情类、财务数据类等
+        :param words: 初步处理的字符串筛选条件列表，一个words列表代表一个筛选条件
+        :param filters: 处理后的筛选条件字典
+        :return:
+        """
         option_len = len(words)
         # print(key, words)
         if filters.get(key) is None:
@@ -206,6 +272,17 @@ class Server(object):
                         filter_l2[words[1]] = words[2]
                     if words[1] == '<' and float(words[2]) < float(pre_value):
                         filter_l2[words[1]] = words[2]
+
+    def search_fund(self, code, decided):
+        # print(code)
+        fund_basic = self.basic_info.fund_basic
+        if decided is False:
+            searched_list = fund_basic[fund_basic.ts_code.str.startswith(code)]
+            # print(len(searched_list['ts_code']))
+            return searched_list.set_index('ts_code')['name'][:20].to_dict()
+        else:
+            searched_fund = fund_basic[fund_basic['ts_code'] == code].fillna('null').to_dict(orient='records')[0]
+            return searched_fund
 
 
 if __name__ == '__main__':

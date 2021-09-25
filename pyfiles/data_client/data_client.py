@@ -384,7 +384,7 @@ class DataClient(object):
             raise ParamError("param error(price/pct)")
 
     def get_index_data(self, index_code: str, columns: List[str], start_dt: str,
-                       end_dt: str, freq: str) -> pd.DataFrame:
+                       end_dt: str, freq: str = 'D') -> pd.DataFrame:
         """
         获取指数在指定时间范围的行情数据，获取的数据类别由参数指定
         :param index_code: 指数代码
@@ -400,6 +400,7 @@ class DataClient(object):
         query = "select %s from indexes.%s where trade_date between '%s' and '%s'" \
                 % (','.join(columns), table_name, start_dt, end_dt)
         data = self.mysql_client.query(query)
+        # print(data)
         return data[columns]
 
     def get_price_list(self, dt: str, sec_codes: List[str], price_type):

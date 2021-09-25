@@ -139,10 +139,12 @@ function DropdownCheckbox(indicators, targetId, parentId) {
         let options = document.createElement("ul");
         $(options).css("list-style", "none");
         $(options).attr("id", "dropdown-option");
+        $(options).css("font-size", "16px");
         options.self = this;
         for (let key in this.listData) {
             if (this.listData.hasOwnProperty(key)) {
                 let li = document.createElement("li");
+                $(li).css("padding", "2px");
                 let input = document.createElement("input");
                 $(input).prop("data-value", key);
                 $(input).prop("value", this.listData[key]);
@@ -213,6 +215,7 @@ function IndicatorDict() {
  */
 function OptionUnit(indicatorName) {
     this.indicatorName = indicatorName;
+    let indicatorDict = new IndicatorDict();
 
     OptionUnit.prototype.createPanel = function () {
         let unit = document.createElement("div");
@@ -260,6 +263,7 @@ function TabularStock(dataset) {
         let tbl = document.createElement("table");
         $(tbl).addClass("table table-striped col-sm-10");
         $(tbl).attr("id", "list-tbl");
+        $(tbl).css("margin-left", "20px");
         // 表格头
         let thead = document.createElement("thead");
         $(thead).attr("id", 'tbl-head');
@@ -424,6 +428,7 @@ function PageTurn(params) {
         // 页面容器
         let pagesDiv = document.createElement("div");
         $(pagesDiv).addClass("pages-div");
+        $(pagesDiv).css("float", "left");
         // 上一页按钮
         let pageDown = document.createElement("button");
         pageDown.innerHTML = "<";
@@ -478,6 +483,7 @@ function PageTurn(params) {
         // 跳转子组件
         let jumpDiv = document.createElement("div");
         $(jumpDiv).addClass("jump-div");
+        $(jumpDiv).css("float", "right");
         let label1 = document.createElement("label");
         label1.innerHTML = "前往:";
         $(label1).css("margin-left", "10px");
@@ -666,7 +672,7 @@ function StockDetail(dataset) {
 
 /**
  * ******************************************************************************
- * multi_indicator.html
+ * backtest.html
  */
 function IndicatorList(containerId, indicatorTree, targetId) {
     let container = $(`#${containerId}`);

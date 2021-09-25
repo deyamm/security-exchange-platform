@@ -276,10 +276,11 @@
             start_date: backtestParam['start-date'],
             end_date: backtestParam['end-date'],
             stragety: "single_indicator",
-            first_in: parseFloat(backtestParam['capitalte'])
+            first_in: parseFloat(backtestParam['capital'])
         };
+        console.log(backtestConfig);
         $.ajax({
-            url: "/backtest",
+            url: "/backtest/run",
             type: "POST",
             data: JSON.stringify(backtestConfig),
             dataType: "json",

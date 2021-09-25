@@ -4,80 +4,40 @@ from flask import render_template
 from flask_cors import CORS
 import json
 from server import Server
-from blueprint import visualize, fetch_data
+from blueprint import visualize, fetch_data, backtest, stock_filter, fund
 
 app = Flask(__name__)
-CORS(app)
+app.jinja_env.variable_start_string = '[['
+app.jinja_env.variable_end_string = ']]'
+
 server = Server()
 
-app.register_blueprint(visualize.quant)
+app.register_blueprint(visualize.visualize)
 app.register_blueprint(fetch_data.data)
+app.register_blueprint(backtest.backtest)
+app.register_blueprint(stock_filter.stock_filter)
+app.register_blueprint(fund.fund)
 
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('page_list.html')
     # return 'index.html'
 
 
-@app.route('/page_list.html')
-def stragety_list_page():
-    return render_template('page_list.html')
+# @app.route('/page_list.html')
+# def stragety_list_page():
+#     return render_template('page_list.html')
 
 
-@app.route('/stock_list.html')
-def stock_list_page():
-    return render_template('stock_list.html')
-
-
-@app.route('/fund_pick.html')
+@app.route('/fund_analysis.html')
 def fund_pick_page():
-    return render_template('fund_pick.html')
+    return render_template('fund_analysis.html')
 
 
 @app.route('/stock_info.html')
 def stock_info_page():
     return render_template('stock_info.html')
-
-
-@app.route('/multi_indicator.html')
-def multi_indicator_page():
-    return render_template("multi_indicator.html")
-
-
-@app.route('/stock_pick/init', methods=['GET', 'POST'])
-def stock_pick_init():
-    recv = request.get_data()
-    if recv:
-        recv = json.loads(str(recv, encoding='utf-8'))
-        res = server.get_fina_data(recv['sec_codes'])
-        # print(res)
-        # print(res.to_json(force_ascii=False, orient='records'))
-        return res.to_json(force_ascii=False, orient='records')
-    else:
-        return json.dumps({'status': 'fail'})
-
-
-@app.route('/stock_pick/search', methods=['GET', 'POST'])
-def stock_pick_search():
-    recv = request.get_data()
-    if recv:
-        recv = json.loads(str(recv, encoding='utf-8'))
-        res = server.sec_filter(recv['options'])
-        return res.to_json(force_ascii=False, orient='records')
-    else:
-        return json.dumps({'status': 'fail'})
-
-
-@app.route("/backtest", methods=['GET', 'POST'])
-def backtest():
-    recv = request.get_data()
-    if recv:
-        recv = json.loads(str(recv, encoding='utf-8'))
-        res = server.backtest(recv).return_metrics()
-        return json.dumps({'metrics': res, 'status': 'success'})
-    else:
-        return json.dumps({'stauts': 'fail'})
 
 
 @app.route('/multi_indicator/regression', methods=['GET', 'POST'])

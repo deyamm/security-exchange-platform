@@ -203,6 +203,7 @@ class Portfolio(object):
         :param side: str 转入或转出，in表示转入，out表示转出
         :return:
         """
+        print(amount)
         self.inout_cash = self.inout_cash + amount
         if side == 'in':
             self.available_cash = self.available_cash + amount

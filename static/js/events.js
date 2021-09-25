@@ -1,3 +1,7 @@
+import {removeChild} from "./functions.js";
+import {LIST_LARGE, LIST_SMALL} from "./variables.js";
+import {DropdownCheckbox, OptionUnit, StockDetail, TabularStock} from "./classes.js";
+
 function stockListEvents() {
     $("body").height(window.innerHeight);
     let optionSet = $("#option-set");
@@ -13,7 +17,7 @@ function stockListEvents() {
         let selectDiv = document.getElementById("option-select-div");
         $(selectDiv).css("display", "block");
         $(selectDiv).css("left", window.innerWidth / 2 - $(selectDiv).width() / 2);
-        $(selectDiv).css("top", window.innerHeight / 3 - $(selectDiv).height() / 3);
+        $(selectDiv).css("top", window.innerHeight / 4 - $(selectDiv).height() / 4);
     });
 
     /**
@@ -36,29 +40,6 @@ function stockListEvents() {
     $("#select-cancel-btn").click(function () {
         let selectDiv = document.getElementById("option-select-div");
         $(selectDiv).css("display", "none");
-    });
-
-    /**
-     * 排列方式选择按钮，用于改变个股的排列方式
-     * 目前有两种形式，一种是以每支股票为一单元的详细信息，另一种是表格形式
-     */
-    $("#list-method-btn").click(function () {
-        let listMethod = $(this).prop("list-method");
-        if (listMethod == LIST_LARGE) {// 瘵详细信息排列转换为表格排列
-            $(this).prop("list-method", LIST_SMALL);
-            $(this).addClass("glyphicon-th-list");
-            $(this).removeClass("glyphicon-th-large");
-            removeChild("list-content");
-            $("#list-content").append(new TabularStock(dataset).createPanel());
-        } else if (listMethod == LIST_SMALL) { // 将表格排列转换为详细信息排列
-            $(this).prop("list-method", LIST_LARGE);
-            $(this).addClass("glyphicon-th-large");
-            $(this).removeClass("glyphicon-th-list");
-            removeChild("list-content");
-            new StockDetail(dataset).createPanel();
-        } else {
-            alert("未知排列方式" + listMethod);
-        }
     });
 }
 
@@ -93,7 +74,7 @@ function multiIndiEvents() {
 
 /**
  * *****************************************************************************
- * multi_indicator.html
+ * backtest.html
  */
 function addLiEvent(li, childItems, containerId) {
     $(li).click(function () {

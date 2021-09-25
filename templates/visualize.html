@@ -10,10 +10,25 @@
         #list-div {
             background: #f7f7f7;
             padding: 30px;
+            height: 100%;
         }
+
+        #chief-indicator-div {
+            float: left;
+        }
+
         #chief-indicator-chart {
-            width: 600px;
+            width: 1000px;
             height: 400px;
+        }
+
+        #industry-div {
+            float: right;
+        }
+
+        #heatmap-chart {
+            width: 1000px;
+            height: 600px;
         }
     </style>
 </head>
@@ -23,128 +38,42 @@
         多空因子指标
     </div>
 </div>
-<div id="option-div">
-    <div id="search-div" class="col-sm-offset-3 col-sm-6">
-        <input id="search-input" type="text" autocomplete="off" name="searchInput" placeholder="关键词">
-        <button class="glyphicon glyphicon-search"></button>
-    </div>
-</div>
 <div id="list-div">
     <div id="chief-indicator-div">
         <h2>多空因子</h2>
         <div id="chief-indicator-chart"></div>
+        <div>
+            <button>添加数据</button>
+        </div>
+    </div>
+    <div id="industry-div">
+        <div id="heatmap-chart"></div>
     </div>
 </div>
-    <script src="/static/lib/jquery-1.11.0.min.js" type="text/javascript"></script>
-    <script src="/static/echarts/dist/echarts.js" type="text/javascript"></script>
-    <script src="/static/bootstrap3.3.7/js/bootstrap.js" type="text/javascript"></script>
-    <script type="text/javascript">
-        $("body").height(window.innerHeight);
-        $.ajax({
-            url: "/visualize/init",
-            type: "POST",
-            data: JSON.stringify({}),
-            dataType: "json",
-            success: function (data) {
-                console.log(data);
-                let option = {
-                    tooltip: {
-                        trigger: 'axis',
-                        axisPointer: {
-                            type: 'cross',
-                            crossStyle: {
-                                color: '#999'
-                            }
-                        }
-                    },
-                    toolbox: {
-                        feature: {
-                            dataView: {
-                                show: true,
-                                readOnly: false
-                            },
-                            magicType: {
-                                show: true,
-                                type: ['line', 'bar']
-                            },
-                            restore: {
-                                show: true
-                            },
-                            saveAsImage: {
-                                show: true
-                            }
-                        }
-                    },
-                    legend: {
-                        data: ['多空因子', '沪深300']
-                    },
-                    xAxis: [
-                        {
-                            type: 'category',
-                            data: data['trade_date'],
-                            axisPointer: {
-                                type: 'shadow'
-                            }
-                        }
-                    ],
-                    yAxis: [
-                        {
-                            type: 'value',
-                            name: '多空因子',
-                            scale: true,
-                            min: -30,
-                            max: 30,
-                            interval: 10,
+<script src="/static/lib/jquery-1.11.0.min.js" type="text/javascript"></script>
+<script src="/static/echarts/dist/echarts.js" type="text/javascript"></script>
+<script src="/static/bootstrap3.3.7/js/bootstrap.js" type="text/javascript"></script>
+<script type="module">
+    import {getQuantOption, getHeatmapOption} from "../static/js/echartsOptions.js";
 
-                        },
-                        {
-                            type: 'value',
-                            name: '沪深300',
-                            scale: true,
-                            splitLine: {
-                                show: false
-                            }
-                        }
-                    ],
-                    series: [
-                        {
-                            name: '多空因子',
-                            type: 'bar',
-                            data: data['indicator_value'],
-                            markLine: {
-                                symbol: 'none',
-                                data: [
-                                    {
-                                        silent: true,
-                                        lineStyle: {
-                                            type: 'solid',
-                                            color: '#3398DB'
-                                        },
-                                        yAxis: -20
-                                    },
-                                    {
-                                        silent: true,
-                                        lineStyle: {
-                                            type: 'solid',
-                                            color: '#FA3934'
-                                        },
-                                        yAxis: -26
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            name: '沪深300',
-                            type: 'line',
-                            yAxisIndex: 1,
-                            data: data['index_data']
-                        }
-                    ]
-                };
-                let chart = echarts.init(document.getElementById("chief-indicator-chart"));
-                chart.setOption(option);
-            }
-        })
-    </script>
+    $("body").height(window.innerHeight);
+    $.ajax({
+        url: "/visualize/init",
+        type: "POST",
+        data: JSON.stringify({}),
+        dataType: "json",
+        success: function (data) {
+            //console.log(data);
+            let quantOption = getQuantOption(data['quant_data']);
+            let heatmapOption = getHeatmapOption(data['heatmap_data']);
+            let quantChart = echarts.init(document.getElementById("chief-indicator-chart"));
+            quantChart.setOption(quantOption);
+            let heatmapChart = echarts.init(document.getElementById("heatmap-chart"));
+            heatmapChart.setOption(heatmapOption);
+        }
+    });
+
+
+</script>
 </body>
 </html>
