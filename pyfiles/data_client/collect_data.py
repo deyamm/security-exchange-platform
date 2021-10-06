@@ -40,7 +40,6 @@ class CollectData(object):
                    '801790', '801880', '801890']
         columns_order = ['date', 'index_code', 'index_name', 'open', 'close',
                          'high', 'low', 'change_pct', 'vol', 'amount']
-        self.engine.execute("use indexes")
         for i in range(0, len(indexes)):
             print(indexes[i] + ' start')
             data, msg = swindex.get_index_daily(indexes[i], start_date='1999-12-30',
@@ -59,7 +58,7 @@ class CollectData(object):
             res = data.merge(indicator, left_index=True, right_index=True, how='left')
             res.rename(columns={'change_pct': 'chg_pct', 'turn_rate': 'turnover_rate',
                                 'vwap': 'avg_price'}, inplace=True)
-            res.to_sql(name=indexes[i] + '_daily', con=engine, if_exists='append', index=True,
+            res.to_sql(name=indexes[i] + '_daily', con=self.engine, schema='indexes', if_exists='append', index=True,
                        dtype={'trade_date': sa.DateTime()})
             self.engine.execute("alter table indexes.%s_daily add primary key(trade_date);" % indexes[i])
             print(indexes[i] + ' end')
@@ -199,8 +198,7 @@ class CollectData(object):
                               right=indicator_df.drop(['ts_code', 'close', 'turnover_rate', 'volume_ratio'], axis=1),
                               on='trade_date', how='left')
         # print(df.columns)
-        self.engine.execute("use stock")
-        df.to_sql(name=table_name, con=self.engine, if_exists='append', index=False,
+        df.to_sql(name=table_name, con=self.engine, schema='stock', if_exists='append', index=False,
                   dtype={'trade_date': sa.DateTime()})
         #
         # self.engine.execute("alter table stock.%s add primary key(trade_date);" % table_name)
@@ -216,9 +214,8 @@ class CollectData(object):
         table_name = code[:6] + '_' + fq_trans(freq)
         print(code + " start")
         #
-        self.engine.execute("use indexes")
         df = ts.pro_bar(ts_code=code, asset='I', ma=[5, 10, 20, 30, 60, 120, 250])
-        df.to_sql(name=table_name, con=self.engine, if_exists='replace', index=False,
+        df.to_sql(name=table_name, con=self.engine, schema='indexes', if_exists='replace', index=False,
                   dtype={'trade_date': sa.DateTime()})
         self.engine.execute("alter table indexes.%s add primary key(trade_date);" % table_name)
         #
@@ -308,11 +305,10 @@ class CollectData(object):
             end_date = '20200201'
         print(index_name + "start...")
         # 获取股票在指定日期范围内的资金流向数据并存到数据库moneyflow库中
-        self.engine.execute("use moneyflow")
         for code in codes:
             print(code + "start....")
             df = self.pro.moneyflow(ts_code=code, start_date=start_date, end_date=end_date)
-            df.to_sql(name=code[:6], con=self.engine, if_exists='append', index=False,
+            df.to_sql(name=code[:6], con=self.engine, schema='moneyflow', if_exists='append', index=False,
                       dtype={'trade_date': sa.DateTime()})
             # df.to_csv('./static/data/moneyflow/' + index + '/' + code[:6] + '.csv', mode='a', index=False)
             # df.to_json('./static/data/moneyflow/' + index + '/' + code[:6] + '.json',
@@ -359,7 +355,6 @@ class CollectData(object):
         :param end_date: 结束日期
         :return:
         """
-        self.engine.execute("use sw_moneyflow")
         if start_date is None:
             start_date = '20200101'
         if end_date is None:
@@ -392,10 +387,16 @@ class CollectData(object):
                 data = data.add(df, fill_value=0)
             # print(code + 'end')
         #
-        data.to_sql(name=index[:6], con=self.engine, if_exists='append', index=True,
+        data.to_sql(name=index[:6], con=self.engine, schema='sw_moneyflow', if_exists='append', index=True,
                     dtype={'trade_date': sa.DateTime()})
         self.engine.execute("alter table sw_moneyflow.%s add primary key(trade_date);" % index[:6])
         print(index_name + "end")
+
+    def get_trade_cal(self):
+        trade_cal = self.pro.trade_cal()
+        print(trade_cal)
+        trade_cal.to_sql(name='trade_cal', con=self.engine, schema='basic_info', if_exists='replace', index=True,
+                         dtype={'cal_date': sa.DateTime()})
 
     def con_sw_tree(self):
         """
@@ -502,4 +503,4 @@ if __name__ == '__main__':
     # get_sw_index()
     # get_fina_data()
     # stock_dk()
-    CollectData().index_dk()
+    CollectData().get_trade_cal()

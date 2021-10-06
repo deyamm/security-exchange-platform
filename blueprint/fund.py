@@ -50,3 +50,14 @@ def load_holded_fund():
         return json.dumps(holded_fund, ensure_ascii=False, indent=1)
     else:
         return json.dumps({'status': 0})
+
+
+@fund.route('/analyse', methods=['GET', 'POST'])
+def analyse():
+    recv = request.get_data()
+    if recv:
+        recv = json.loads(str(recv, encoding='utf-8'))
+        res = server.analyse_fund(recv)
+        return json.dumps({'status': 1})
+    else:
+        return json.dumps({'status': 0})

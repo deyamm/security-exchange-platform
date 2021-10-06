@@ -1,31 +1,26 @@
 # -*- coding: utf-8 -*-
 # 在初始化数据的基础上，向数据库中更新数据
 from pyfiles.data_client.collect_data import *
-from pyfiles.data_client import DataClient
-from pyfiles.com_lib.tools import *
-import MySQLdb as sql
+from pyfiles.com_lib import *
+from pyfiles.data_client.database_client import *
 import sqlalchemy as sa
-import pymongo
 import datetime
+import tushare as ts
 import numpy as np
 
 
 class UpdateDataClient(object):
 
     def __init__(self, **kwargs):
-        host = kwargs.get("host", 'localhost')
-        port = kwargs.get("port", 3306)
-        user = kwargs.get("user", 'root')
-        passwd = kwargs.get("passwd", 'qq16281091')
-        db = kwargs.get("db", 'stock')
-        charset = kwargs.get("charset", 'utf8')
-        self.connect = sql.connect(host=host, port=port, user=user, passwd=passwd, db=db, charset=charset)
-        self.cursor = self.connect.cursor()
+        self.mysql = MySqlServer()
         #
-        self.mongo_client = pymongo.MongoClient(host='localhost', port=27017)
+        self.mongo = MongoClient()
         #
-        self.sql_engine = sa.create_engine("mysql+mysqldb://%s:%s@%s:%d/%s?charset=%s"
-                                           % (user, passwd, host, port, db, charset))
+        self.sql_orm = DataClientORM()
+        #
+        self.mas = [5, 10, 20, 30, 60, 120, 250]
+        #
+        self.pro = TushareClient().get_pro()
 
     def update_daily_k(self, sec_code: str, start_dt: str = None, end_dt: str = None):
         """
@@ -37,24 +32,24 @@ class UpdateDataClient(object):
         print(sec_code + " update start")
         # 获取新的数据
         try:
-            self.cursor.execute("select trade_date from stock.%s_daily" % sec_code[:6])
-            dates = np.sort(np.array(self.cursor.fetchall()).ravel())
+            query = "select trade_date from stock.%s_daily" % sec_code[:6]
+            dates = np.sort(self.mysql.query(query, return_type='np').ravel())
             if start_dt is None:
                 start_dt = chg_dt(to_date_str(dates[-1], only_date=True), 1, 'front')
             # 如果不指定结束日期，则将当前日期作为最后一天
             if end_dt is None:
                 end_dt = datetime.datetime.now().date().isoformat()
             df = ts.pro_bar(ts_code=sec_code, start_date=start_dt, end_date=end_dt,
-                            adj='qfq', ma=[5, 10, 20, 30, 60, 120, 250], factors=['tor', 'vr'], adjfactor=True)
+                            adj='qfq', ma=self.mas, factors=['tor', 'vr'], adjfactor=True)
         except Exception:
-            df = ts.pro_bar(ts_code=sec_code, adj='qfq', ma=[5, 10, 20, 30, 60, 120, 250], factors=['tor', 'vr'],
+            df = ts.pro_bar(ts_code=sec_code, adj='qfq', ma=self.mas, factors=['tor', 'vr'],
                             adjfactor=True)
         # print(start_dt)
         # print(end_dt)
         # print(df)
         # 如果有新数据，则直接扩展到MySQL数据库中
         if df is not None:
-            df.to_sql(name=sec_code[:6]+'_daily', con=self.sql_engine, if_exists='append', index=False,
+            df.to_sql(name=sec_code[:6]+'_daily', con=self.sql_orm.engine, if_exists='append', index=False,
                       dtype={'trade_date': sa.DateTime()})
         else:
             df = pd.DataFrame()
@@ -69,9 +64,7 @@ class UpdateDataClient(object):
         :return:
         """
         if client_num == 1:  # MySQLdb
-            self.cursor.execute(query)
-            data = np.array(self.cursor.fetchall())
-            df = pd.DataFrame(data, columns=[col[0] for col in self.cursor.description])
+            df = self.mysql.query(query)
             return df
         elif client_num == 2:  # mongo
             pass
@@ -79,6 +72,39 @@ class UpdateDataClient(object):
             pass
         else:
             raise ParamError("client number error(1/2/3)")
+
+    def get_last_dt(self, ts_code: str, asset: str = 'E'):
+        """
+        获取数据库中指定资产最后数据的日期
+        :param ts_code:
+        :param asset:
+        :return:
+        """
+        table_name = ts_code[:6] + '_' + fq_trans('D')
+        if asset == 'I':
+            query = "select trade_date from indexes.%s" % table_name
+        elif asset == 'E':
+            query = "select trade_date from stock.%s" % table_name
+        else:
+            raise ParamError("frequency error")
+        dates = self.mysql.query(query).sort_values(by=['trade_date'])
+        # print(dates)
+        last_day = to_date_str(dates.loc[len(dates) - 1, 'trade_date'])
+        return last_day
+
+    def update_index_k(self, index_code: str, start_dt: str = None, end_dt: str = None):
+        if start_dt is None:
+            start_dt = self.get_last_dt(ts_code=index_code, asset='I')
+        if end_dt is None:
+            end_dt = datetime.date.today().isoformat()
+        index_data = ts.pro_bar(api=self.pro, ts_code=index_code, asset='I', ma=[5, 10, 20, 30, 60, 120, 250])
+        index_data.sort_values(by=['trade_date'], inplace=True)
+        table_name = index_code[:6] + '_' + fq_trans('D')
+        #
+        added_data = index_data[index_data['trade_date'] > chg_dt_format(start_dt, '-', '')]
+        added_data.to_sql(name=table_name, con=self.sql_orm.engine, schema='indexes', if_exists='append', index=False,
+                          dtype={'trade_date': sa.DateTime()})
+        print(index_code + " update successfully")
 
 
 def daily_update():
@@ -90,8 +116,8 @@ def daily_update():
     :return:
     """
     update_data_client = UpdateDataClient()
-    data_client = DataClient()
-    stock_basic = data_client.pro.stock_basic()
+    ts_client = TushareClient()
+    stock_basic = ts_client.pro.stock_basic()
     # 向数据库中添加新的数据
     start_index = 0
     for i in range(start_index, 1):

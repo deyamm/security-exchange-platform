@@ -109,13 +109,29 @@
     //var myChart = echarts.init(document.getElementById('main'));
     $("body").height(window.innerHeight);
     // 整个页面的父组件
-    const fundHold = Vue.createApp({});
+    //const fundHold = Vue.createApp({});
 
-    const app = Vue.createApp(fundHold);
+    const app = Vue.createApp({});
     app.component('fund-hold-div', {
         data() {
             return {
                 holdedfund: []
+            }
+        },
+        computed: {
+            totalAmount() {
+                let totalAmount = 0;
+                for(let i = 0; i < this.holdedfund.length; i++){
+                    totalAmount += parseFloat(this.holdedfund[i]['holdamount']);
+                }
+                return totalAmount;
+            },
+            totalMoney() {
+                let totalMoney = 0;
+                for(let i = 0; i < this.holdedfund.length; i++){
+                    totalMoney += parseFloat(this.holdedfund[i]['holdmoney']);
+                }
+                return totalMoney;
             }
         },
         template: '#fund-hold-div-tem',
@@ -213,17 +229,34 @@
                     })
 
                  */
+            },
+            analyseHoldedFund() {
+                console.log("analyse fund");
+                $.ajax({
+                    url: "/fund/analyse",
+                    type: "POST",
+                    data: JSON.stringify({
+                        fund_list: this.holdedfund
+                    }),
+                    dataType: "json",
+                    success: data => {
+                        console.log(data);
+                    }
+                })
             }
         },
         template: '#operation-panel-tem',
     });
     app.component('hold-list', {
         props: {
-            holdedfund: Array
+            holdedfund: Array,
+            totalamount: Number,
+            totalmoney: Number
         },
         data() {
             return {
-                isEditDisabled: true
+                isEditDisabled: true,
+                hasHolded: {}
             }
         },
         methods: {
@@ -266,7 +299,11 @@
                     dataType: "json",
                     success: data => {
                         for(let i = 0; i < data['holded_fund'].length; i++){
-                            this.holdedfund.push(data['holded_fund'][i]);
+                            if(!this.hasHolded.hasOwnProperty(data['holded_fund'][i]['ts_code'])){
+                                this.holdedfund.push(data['holded_fund'][i]);
+                                this.hasHolded[data['holded_fund'][i]['ts_code']] = 1;
+                            }
+
                         }
                         console.log(this.holdedfund);
                         layui.use('layer', function(){
@@ -292,7 +329,24 @@
                 this.isEditDisabled = false
             },
             saveEdit(){
-                this.isEditDisabled = true
+                this.isEditDisabled = true;
+
+            },
+            delHolded(fundcode) {
+                console.log(fundcode);
+                let pos = -1;
+                for(let i = 0;i < this.holdedfund.length; i++){
+                    if(fundcode === this.holdedfund[i]["ts_code"]){
+                        pos = i;
+                        break;
+                    }
+                }
+                if(pos !== -1){
+                    this.holdedfund.splice(pos, 1);
+                }else{
+                    alert("删除出现错误");
+                }
+
             }
         },
         template: '#hold-list-tem'
@@ -301,11 +355,12 @@
 </script>
 <template id="fund-hold-div-tem">
     <operation-panel :holdedfund="holdedfund"></operation-panel>
-    <hold-list :holdedfund="holdedfund"></hold-list>
+    <hold-list :holdedfund="holdedfund" :totalamount="totalAmount" :totalmoney="totalMoney"></hold-list>
 </template>
 <template id="operation-panel-tem">
     <div id="operation-panel">
         <button v-on:click="displayAddPanel" class="layui-btn layui-btn-normal" style="margin: 10px">添加持仓</button>
+        <button class="layui-btn layui-btn-normal" style="margin: 10px" v-on:click="analyseHoldedFund">分析持仓</button>
         <div id="add-hold-panel" class="panel panel-default">
             <div class="panel-heading">
                 <h3 class="panel-title">
@@ -356,7 +411,7 @@
     <div id="hold-list">
         <div id="tool-box">
             <h1 style="float: left">基金持仓</h1>
-            <button class="layui-icon layui-icon-export btn-style-1" v-on:click="saveHoldedFund"></button>
+            <button class="layui-icon layui-icon-export btn-style-1" v-on:click="saveHoldedFund" v-bind:disabled="!isEditDisabled"></button>
             <button class="layui-icon layui-icon-ok btn-style-1" v-on:click="saveEdit" v-bind:disabled="isEditDisabled"></button>
             <button class="layui-icon layui-icon-edit btn-style-1" v-on:click="editHoldedFund" v-bind:disabled="!isEditDisabled"></button>
             <button class="layui-icon layui-icon-file btn-style-1" v-on:click="loadHoldedFund"></button>
@@ -378,7 +433,14 @@
                         <td>{{ fundinfo['name'] }}</td>
                         <td><input type="text" v-model="fundinfo.holdmoney" v-bind:disabled="isEditDisabled"></td>
                         <td><input type="text" v-model="fundinfo.holdamount" v-bind:disabled="isEditDisabled"></td>
-                        <td v-if="!isEditDisabled"><button class="layui-icon layui-icon-close-fill btn-style-1"></button></td>
+                        <td v-if="!isEditDisabled"><button class="layui-icon layui-icon-close-fill btn-style-1" v-on:click="delHolded(fundinfo.ts_code)"></button></td>
+                    </tr>
+                    <tr>
+                        <td>总持有</td>
+                        <td></td>
+                        <td>{{ this.totalmoney }}</td>
+                        <td>{{ this.totalamount }}</td>
+                        <td></td>
                     </tr>
                 </tbody>
             </table>

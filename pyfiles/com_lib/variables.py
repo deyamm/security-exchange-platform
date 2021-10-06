@@ -18,3 +18,6 @@ ERROR_L3 = 3
 
 # 项目路径，使用绝对路径来读写文件
 PRO_PATH = '/home/deyam/Stock/project'
+
+# tushare token
+TS_TOKEN = '92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947'

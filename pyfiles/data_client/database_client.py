@@ -3,6 +3,7 @@ from sqlalchemy import create_engine
 import numpy as np
 import pymongo
 import pandas as pd
+import tushare as ts
 from pyfiles.com_lib import *
 
 
@@ -15,7 +16,10 @@ class MongoClient(object):
         host = kwargs.get("host", 'localhost')
         db = kwargs.get("db", 'fina_db')
         self.client = pymongo.MongoClient("mongodb://%s:%s@%s/%s?authSource=admin"
-                                                % (user, passwd, host, db))
+                                          % (user, passwd, host, db))
+
+    def get_client(self):
+        return self.client
 
 
 class DataClientORM(object):
@@ -31,6 +35,12 @@ class DataClientORM(object):
         charset = kwargs.get("charset", 'utf8')
         self.engine = create_engine("mysql://%s:%s@%s:%s/%s?%s" % (user, passwd, host, port, db, charset))
         self.connect = self.engine.connect()
+
+    def get_engine(self):
+        return self.engine
+
+    def get_connect(self):
+        return self.connect
 
     def __del__(self):
         self.connect.close()
@@ -58,15 +68,15 @@ class MySqlServer(object):
         # print(data)
         columns = [col[0] for col in self.cursor.description]
         df_res = pd.DataFrame(data, columns=columns)
+        if 'trade_date' in columns:
+            df_res['trade_date'] = df_res['trade_date'].map(lambda x: to_date(x))
+        if 'cal_date' in columns:
+            df_res['cal_date'] = df_res['cal_date'].map(lambda x: to_date(x))
         if len(data) < 1:
             return pd.DataFrame()
         if return_type == 'df':
             # print(df_res.dtypes)
-            if 'trade_date' in columns:
-                df_res['trade_date'] = df_res['trade_date'].map(lambda x: to_date(x))
-                return df_res
-            else:
-                return df_res
+            return df_res
         elif return_type == 'np':
             return df_res.values
         else:
@@ -78,6 +88,17 @@ class MySqlServer(object):
     def close(self):
         self.cursor.close()
         self.connect.close()
+
+
+class TushareClient(object):
+    pro = None
+
+    def __init__(self):
+        ts.set_token(TS_TOKEN)
+        self.pro = ts.pro_api()
+
+    def get_pro(self):
+        return self.pro
 
 
 if __name__ == '__main__':

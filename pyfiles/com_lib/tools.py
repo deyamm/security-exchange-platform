@@ -217,8 +217,15 @@ def chg_dt_format(dt: str, cur_split: str = '', tar_split: str = '-') -> str:
     :param tar_split:
     :return:
     """
-    dt = dt[:4] + tar_split + dt[4 + len(cur_split): 6 + len(cur_split)] \
-        + tar_split + dt[6 + len(cur_split) * 2:]
+    if len(cur_split) != '':
+        eles = dt.split(cur_split)
+        for i in range(1, len(eles)):
+            if len(eles[i]) == 1:
+                eles[i] = '0' + eles[i]
+        dt = tar_split.join(eles)
+    else:
+        dt = dt[:4] + tar_split + dt[4 + len(cur_split): 6 + len(cur_split)] \
+            + tar_split + dt[6 + len(cur_split) * 2:]
     return dt
 
 

@@ -8,7 +8,8 @@ import pymongo
 import tushare as ts
 from pyfiles.com_lib.tools import *
 from pyfiles.com_lib.variables import *
-from .database_client import MySqlServer
+from .database_client import *
+from .update_data import UpdateDataClient
 import pandas as pd
 
 
@@ -18,6 +19,7 @@ class DataClient(object):
     mongo_client = None
     pro = None
     error_level = None
+    update_client = None
 
     def __init__(self, **kwargs):
         host = kwargs.get("host", 'localhost')
@@ -33,15 +35,14 @@ class DataClient(object):
         # self.mongo_client = pymongo.MongoClient(host='localhost', port=27017)
         # self.mongo_client = pymongo.MongoClient(host='localhost', port=27017, username='admin', password='qq16281091',
         #                                         authSource='admin', authMechanism='SCRAM-SHA-256')
-        self.mongo_client = pymongo.MongoClient("mongodb://root:qq16281091@localhost/fina_db?authSource=admin")
+        self.mongo_client = MongoClient().get_client()
         # 将整个交易日历存储下来
-        query = "select * from basic_info.trade_cal"
-        self.trade_cal = self.mysql_client.query(query)
+        self.trade_cal = self.mysql_client.query("select * from basic_info.trade_cal")
         # 将datetime类型设置为索引，输出整个对象时只显示日期，实际仍是datetime类型
         self.trade_cal.set_index('cal_date', inplace=True)
         # print(self.trade_cal)
-        ts.set_token('92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947')
-        self.pro = ts.pro_api()
+        self.pro = TushareClient().get_pro()
+        self.update_client = UpdateDataClient()
 
     def stock_basic(self, list_status=None, exchange: str = None) -> pd.DataFrame:
         """
@@ -114,27 +115,32 @@ class DataClient(object):
 
     def get_pre_trade_dt(self, sec_code: str, dt: str, is_index: bool = False):
         """
-        获取指定证券在指定日期前的最后一个交易日
+        获取指定证券在指定日期前的最后一个交易日，
+        如果sec_code参数为空字符咒（''）,则获取交易日历中指定日期前的最后一个交易日
         :param is_index:
         :param sec_code: 证券代码
         :param dt: 指定的日期
         :return:
         """
-        if is_index:
-            query = "select trade_date from stock.%s_daily where trade_date < '%s'" % (sec_code[:6], dt)
+        if sec_code == '':
+            query = "select cal_date from basic_info.trade_cal where cal_date < '%s' and is_open=1" % dt
+        elif is_index:
+            query = "select trade_date from indexes.%s_daily where trade_date < '%s'" % (sec_code[:6], dt)
         else:
             query = "select trade_date from stock.%s_daily where trade_date < '%s'" % (sec_code[:6], dt)
         try:
-            dates = self.mysql_client.query(query, return_type='np')
+            dates = self.mysql_client.query(query, return_type='np').flatten()
         except ParamError:
             print(sec_code + "不存在")
             return None
         # 应先转化为str
-        if to_date_str(dates[-1].date()) == dt:
-            return to_date_str(dates[-2].date())
-        return to_date_str(dates[-1].date())
+        # print(dates[-1])
+        # print(dates[-1])
+        if to_date_str(dates[-1]) == dt:
+            return to_date_str(dates[-2])
+        return to_date_str(dates[-1])
 
-    def get_back_trade_dt(self, sec_code: str, dt: str, is_index: bool = False) -> str:
+    def get_back_trade_dt(self, sec_code: str, dt: str, is_index: bool = False):
         """
         获取指定证券在指定日期后的第一个交易日
         :param is_index:
@@ -146,11 +152,15 @@ class DataClient(object):
             query = "select trade_date from indexes.%s_daily where trade_date > '%s'" % (sec_code[:6], dt)
         else:
             query = "select trade_date from stock.%s_daily where trade_date > '%s'" % (sec_code[:6], dt)
-        dates = self.mysql_client.query(query, return_type='np')
+        try:
+            dates = self.mysql_client.query(query, return_type='np').flatten()
+        except Exception:
+            print(sec_code + "不存在")
+            return None
         # 应先转化为str
-        if to_date_str(dates[0].date()) == dt:
-            return to_date_str(dates[1].date())
-        return to_date_str(dates[0].date())
+        if to_date_str(dates[0]) == dt:
+            return to_date_str(dates[1])
+        return to_date_str(dates[0])
 
     def init_start_trade_date(self, start_dt: str, end_dt: str):
         """
@@ -397,6 +407,8 @@ class DataClient(object):
         if 'trade_date' not in columns:
             columns.insert(0, 'trade_date')
         table_name = index_code[:6] + '_' + fq_trans(freq)
+        if not self.is_latest(ts_code=index_code, asset='I'):
+            self.update_client.update_index_k(index_code=index_code)
         query = "select %s from indexes.%s where trade_date between '%s' and '%s'" \
                 % (','.join(columns), table_name, start_dt, end_dt)
         data = self.mysql_client.query(query)
@@ -440,6 +452,21 @@ class DataClient(object):
         :return: 0/1
         """
         return self.trade_cal.loc[to_date_str(date)]['is_open']
+
+    def is_latest(self, ts_code: str, asset: str = 'E'):
+        """
+        判断指定代码的数据库数据是否是最新的
+        :param ts_code:
+        :param asset: 'E'股票；‘I’指数
+        :return:
+        """
+        latest_trade_dt = self.get_pre_trade_dt(sec_code='', dt=datetime.date.today().isoformat(), is_index=True)
+        last_day = self.update_client.get_last_dt(ts_code=ts_code, asset=asset)
+        # print(latest_trade_dt, last_day)
+        if latest_trade_dt == last_day:
+            return True
+        else:
+            return False
 
     def get_fina_report(self, sec_code: str, year: int, quarter: int, **kwargs) -> pd.DataFrame:
         """

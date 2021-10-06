@@ -251,11 +251,23 @@ function getKlineOption(data) {
  * 数据格式：x轴：日期数组；y轴：行业数组，
  * 涨跌幅数据：3*n数组
  * @param data
+ * @param type
  */
-function getHeatmapOption(data) {
+function getHeatmapOption(data, type) {
     let horizon = data['trade_date'];
     let vertical = data['industry'];
-    let heatmapData = data['heatmap'];
+    let heatmapData = null;
+    if (type === 1) {
+        heatmapData = data['heatmap'].map((item) => {
+            return [item[0], item[1], item[2]]
+        });
+    } else if (type === 2) {
+        heatmapData = data['heatmap'].map((item) => {
+            return [item[0], item[1], item[3]]
+        });
+    } else {
+        alert("未知类型：" + type);
+    }
     return {
         tooltip: {
             position: 'top',
@@ -419,4 +431,82 @@ function getQuantOption(data) {
     };
 }
 
-export {getKlineOption, getHeatmapOption, getQuantOption};
+
+function getScatterOption(data) {
+    return {
+        tooltip: {
+            showDelay: 0,
+            formatter: (params) => {
+                let value = params.value;
+                //console.log(value);
+                return [
+                    `行业： ${value[3]} <br>`,
+                    `涨跌幅： ${value[0]}% <br>`,
+                    `换手率： ${value[1]}% <br>`,
+                    `交易量： ${value[2]}亿股 <br>`
+                ].join('');
+            }
+        },
+        xAxis: {
+            name: '换手率',
+            type: 'value',
+            axisLabel: {
+                formatter: '{value} %'
+            },
+            splitLine: {
+                show: false
+            }
+        },
+        yAxis: {
+            name: '涨跌幅',
+            type: 'value',
+            axisLabel: {
+                formatter: '{value} %'
+            },
+            splitLine: {
+                show: false
+            },
+            scale: true
+        },
+        grid: {
+            left: 40,
+            right: 130
+        },
+        series: [
+            {
+                name: '换手率',
+                data: data,
+                type: 'scatter',
+                symbolSize: function (data) {
+                    return data[2];
+                },
+                emphasis: {
+                    focus: 'self'
+                },
+                labelLayout: function () {
+                    return {
+                        x: 100,
+                        moveOverlap: 'shiftY'
+                    };
+                },
+                labelLine: {
+                    show: true,
+                    length2: 5,
+                    lineStyle: {
+                        color: "#bbb"
+                    }
+                },
+                label: {
+                    show: true,
+                    formatter: function (param) {
+                        return param.data[3];
+                    },
+                    position: 'right',
+                    minMargin: 2
+                }
+            }
+        ]
+    };
+}
+
+export {getKlineOption, getHeatmapOption, getQuantOption, getScatterOption};

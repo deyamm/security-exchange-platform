@@ -1,6 +1,7 @@
 from flask import Blueprint, request, render_template
 import json
 from pyfiles.com_lib.variables import *
+import pandas as pd
 from server import Server
 
 path = 'visualize'
@@ -16,10 +17,12 @@ def quant_init():
     if recv:
         recv = json.loads(str(recv, encoding='utf-8'))
         res = dict()
-        res['quant_data'] = server.get_quant_data()
-        # res['heatmap_data'] = server.get_heatmap_data()
+        res['quantdata'] = server.get_quant_data()
+        # res['heatmapdata'] = server.get_heatmap_data(is_save=True)
         with open(PRO_PATH + '/data/heatmap.json') as f:
-            res['heatmap_data'] = json.load(f)
+            res['heatmapdata'] = json.load(f)
+        res['scatterdata'] = res['heatmapdata']['scatter']
+        del res['heatmapdata']['scatter']
         res['status'] = 'succses'
         # print(res)
         return json.dumps(res, ensure_ascii=False)
@@ -35,3 +38,19 @@ def quant_indicator_page():
 @visualize.route('/bar.html')
 def show_bar():
     return render_template('three.html')
+
+
+@visualize.route('/save_quantdata', methods=['GET', 'POST'])
+def save_quantdata():
+    recv = request.get_data()
+    if recv:
+        recv = json.loads(str(recv, encoding='utf-8'))['quant_data']
+        del recv['index_data']
+        # print(len(recv['quant_data']['trade_date']))
+        # print(len(recv['quant_data']['indicator_value']))
+        res = pd.DataFrame.from_dict(recv, orient='columns')
+        res.to_csv(PRO_PATH+'/data/quant.csv', index=False)
+        # print(res)
+        return json.dumps({'status': 'succed'})
+    else:
+        return json.dumps({'status': 'fail'})
