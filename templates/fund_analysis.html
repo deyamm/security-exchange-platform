@@ -76,6 +76,13 @@
             font-size: 30px;
             margin: 5px;
         }
+
+        .fund-code {
+            cursor: pointer;
+        }
+        .fund-code:hover {
+            color: #0000FF;
+        }
     </style>
 </head>
 <body>
@@ -88,15 +95,9 @@
 
 </div>
 <div id="list-div">
-    <div id="fund-hold-div">
-        <fund-hold-div></fund-hold-div>
-    </div>
-    <div id="fund-analysis-div">
-        <h1>持仓分析</h1>
-    </div>
-    <div id="fund-market-div">
-        <h1>基金行情</h1>
-    </div>
+    <fund-hold-div :holdedfund="holdedfund" :analysis="analysis"></fund-hold-div>
+    <fund-analysis-div :analysis="analysis"></fund-analysis-div>
+    <fund-market-div></fund-market-div>
 </div>
 <script src="/static/lib/jquery-1.11.0.min.js" type="text/javascript"></script>
 <script src="/static/jquery-ui/jquery-ui.js" type="text/javascript"></script>
@@ -111,11 +112,28 @@
     // 整个页面的父组件
     //const fundHold = Vue.createApp({});
 
-    const app = Vue.createApp({});
-    app.component('fund-hold-div', {
+    const app = Vue.createApp({
         data() {
             return {
-                holdedfund: []
+                holdedfund: [],
+                analysis: {
+                    funds: [],
+                    isChanged: 0,
+                },
+            }
+        },
+        methods: {
+
+        }
+    });
+    app.component('fund-hold-div', {
+        props: {
+            holdedfund: Array,
+            analysis: Object,
+        },
+        data() {
+            return {
+
             }
         },
         computed: {
@@ -134,11 +152,15 @@
                 return totalMoney;
             }
         },
+        methods: {
+
+        },
         template: '#fund-hold-div-tem',
     });
     app.component('operation-panel', {
         props: {
             holdedfund: Array,
+            analysis: Object,
         },
         data() {
             return {
@@ -243,13 +265,25 @@
                         console.log(data);
                     }
                 })
-            }
+            },
+            fundInfo() {
+                //console.log(this.holdedfund);
+                this.analysis["funds"].splice(0, this.analysis["funds"].length);
+                for(let i = 0; i < this.holdedfund.length; i++){
+                    if(this.holdedfund[i].hasOwnProperty("ts_code")){
+                        this.analysis["funds"].push(this.holdedfund[i]['ts_code']);
+                    }
+                }
+                this.analysis['isChanged'] = 1;
+                //console.log(this.analysisfund);
+            },
         },
         template: '#operation-panel-tem',
     });
     app.component('hold-list', {
         props: {
             holdedfund: Array,
+            analysis: Object,
             totalamount: Number,
             totalmoney: Number
         },
@@ -305,7 +339,7 @@
                             }
 
                         }
-                        console.log(this.holdedfund);
+                        //console.log(this.holdedfund);
                         layui.use('layer', function(){
                             let layer = layui.layer;
                             layer.open({
@@ -347,20 +381,88 @@
                     alert("删除出现错误");
                 }
 
+            },
+            fundInfo(fundcode) {
+                this.analysis["funds"].splice(0, this.analysis["funds"].length);
+                this.analysis["funds"].push(fundcode);
+                this.analysis['isChanged'] = 1;
+                //console.log(this.analysisfund);
             }
         },
         template: '#hold-list-tem'
     });
-    app.mount("#fund-hold-div");
+    app.component('fund-analysis-div', {
+        props: {
+            analysis: Object
+        },
+        created() {
+            this.$watch(() => this.analysis.isChanged,
+                (newVal, oldVal) => {
+                    if(newVal === 1 && oldVal === 0){
+                        //console.log("changed");
+                        this.analysis.isChanged = 0;
+                        this.analyseFund();
+                    }else {
+                        //console.log("unchanged");
+                    }
+                })
+        },
+        data() {
+            return {
+                fundsData: {}
+            }
+        },
+        methods: {
+            analyseFund() {
+                $.ajax({
+                    url: '/fund/analyse',
+                    type: "POST",
+                    data: JSON.stringify({
+                        funds: this.analysis.funds,
+                    }),
+                    dataType: "json",
+                    success: data => {
+                        this.fundsData['quarter'] = data['quarter'];
+                        this.fundsData['portfolio'] = data['portfolio'];
+                        console.log(data);
+                    },
+                    error: (XMLHttpRequest, textStatus, errorThrown) => {
+                        layui.use('layer', function(){
+                            let layer = layui.layer;
+                            layer.open({
+                                title: 'Result',
+                                content: errorThrown.toString()
+                            })
+                        })
+                    }
+                })
+            }
+        },
+        template: '#fund-analysis-div-tem',
+    });
+    app.component('fund-market-div', {
+        props: {
+            analysis: Object
+        },
+        data() {
+            return {
+
+            }
+        },
+        template: '#fund-market-div-tem',
+    });
+    app.mount("#list-div");
 </script>
 <template id="fund-hold-div-tem">
-    <operation-panel :holdedfund="holdedfund"></operation-panel>
-    <hold-list :holdedfund="holdedfund" :totalamount="totalAmount" :totalmoney="totalMoney"></hold-list>
+    <div id="fund-hold-div">
+        <operation-panel :holdedfund="holdedfund" :analysis="analysis"></operation-panel>
+        <hold-list :holdedfund="holdedfund" :analysis="analysis" :totalamount="totalAmount" :totalmoney="totalMoney"></hold-list>
+    </div>
 </template>
 <template id="operation-panel-tem">
     <div id="operation-panel">
         <button v-on:click="displayAddPanel" class="layui-btn layui-btn-normal" style="margin: 10px">添加持仓</button>
-        <button class="layui-btn layui-btn-normal" style="margin: 10px" v-on:click="analyseHoldedFund">分析持仓</button>
+        <button class="layui-btn layui-btn-normal" style="margin: 10px" v-on:click="fundInfo()">分析持仓</button>
         <div id="add-hold-panel" class="panel panel-default">
             <div class="panel-heading">
                 <h3 class="panel-title">
@@ -425,14 +527,16 @@
                         <th>基金名称</th>
                         <th>持有金额</th>
                         <th>持有份额</th>
+                        <th>金额占比</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-for="fundinfo in holdedfund">
-                        <td>{{ fundinfo['ts_code'] }}</td>
+                        <td class="fund-code" v-on:click="fundInfo(fundinfo.ts_code)">{{ fundinfo['ts_code'] }}</td>
                         <td>{{ fundinfo['name'] }}</td>
                         <td><input type="text" v-model="fundinfo.holdmoney" v-bind:disabled="isEditDisabled"></td>
                         <td><input type="text" v-model="fundinfo.holdamount" v-bind:disabled="isEditDisabled"></td>
+                        <td>{{ (fundinfo.holdmoney/this.totalmoney*100).toFixed(2)+'%' }}</td>
                         <td v-if="!isEditDisabled"><button class="layui-icon layui-icon-close-fill btn-style-1" v-on:click="delHolded(fundinfo.ts_code)"></button></td>
                     </tr>
                     <tr>
@@ -445,6 +549,43 @@
                 </tbody>
             </table>
         </div>
+    </div>
+</template>
+<template id="fund-analysis-div-tem">
+    <div id="fund-analysis-div">
+        <h1>持仓</h1>
+        <div>
+            <table class="layui-table" lay-even>
+                <colgroup></colgroup>
+                <thead>
+                    <tr>
+                        <th>股票代码</th>
+                        <th>股票名称</th>
+                        <th>持有市值</th>
+                        <th>持仓占比</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="position in fundsData.portfolio">
+                        <td>{{ position['ts_code'] }}</td>
+                        <td>{{ position['name'] }}</td>
+                        <td>{{ position['mkv'] }}元</td>
+                        <td>{{ position['hold_pct'] }}%</td>
+                    </tr>
+                    <tr>
+                        <td>总计</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</template>
+<template id="fund-market-div-tem">
+    <div id="fund-market-div">
+        <h1>基金行情</h1>
     </div>
 </template>
 </body>

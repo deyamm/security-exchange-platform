@@ -34,7 +34,7 @@ def save_holded_fund():
         recv = json.loads(str(recv, encoding='utf-8'))
         with open(PRO_PATH + '/data/holded_fund.json', 'w') as f:
             json.dump(recv, f, ensure_ascii=False, indent=1)
-        print(recv)
+        # print(recv)
         return json.dumps({'status': 1})
     else:
         return json.dumps({'status': 0})
@@ -57,7 +57,8 @@ def analyse():
     recv = request.get_data()
     if recv:
         recv = json.loads(str(recv, encoding='utf-8'))
-        res = server.analyse_fund(recv)
-        return json.dumps({'status': 1})
+        res = server.analyse_fund(recv['funds'])
+        print(json.dumps(res, ensure_ascii=False, indent=1))
+        return json.dumps(res, ensure_ascii=False, indent=1)
     else:
         return json.dumps({'status': 0})

@@ -313,10 +313,9 @@ class Server(object):
             return searched_fund
 
     def analyse_fund(self, fund_list):
-        funds = pd.read_json(json.dumps(fund_list['fund_list']))
-        funds.drop(['benchmark'], axis=1, inplace=True)
-        print(funds)
-        return None
+        fund_portfolio = self.data_client.get_fund_portfolio(fund_code=fund_list[0])
+        fund_portfolio['portfolio'] = fund_portfolio['portfolio'].to_dict(orient='records')
+        return fund_portfolio
 
 
 if __name__ == '__main__':

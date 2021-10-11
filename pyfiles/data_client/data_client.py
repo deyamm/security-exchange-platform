@@ -17,9 +17,11 @@ class DataClient(object):
     mysql_client = None
     trade_cal = None
     mongo_client = None
+    redis_client = None
     pro = None
     error_level = None
     update_client = None
+    basic_info = None
 
     def __init__(self, **kwargs):
         host = kwargs.get("host", 'localhost')
@@ -38,11 +40,15 @@ class DataClient(object):
         self.mongo_client = MongoClient().get_client()
         # 将整个交易日历存储下来
         self.trade_cal = self.mysql_client.query("select * from basic_info.trade_cal")
+        # redis
+        self.redis_client = RedisClient()
         # 将datetime类型设置为索引，输出整个对象时只显示日期，实际仍是datetime类型
         self.trade_cal.set_index('cal_date', inplace=True)
         # print(self.trade_cal)
         self.pro = TushareClient().get_pro()
         self.update_client = UpdateDataClient()
+        #
+        self.basic_info = BasicInfo(mysql_client=self.mysql_client)
 
     def stock_basic(self, list_status=None, exchange: str = None) -> pd.DataFrame:
         """
@@ -706,6 +712,52 @@ class DataClient(object):
         for sec_code in sec_codes:
             res.loc[sec_code, 'pb'] = self.get_pb(dt=dt, sec_code=sec_code)
         return res
+
+    def get_fund_portfolio(self, fund_code: str):
+        """
+        获取指定基金的持仓数据，是从最新一期报告开始的过去的持仓数据，
+        其中一季报与三季报只包含前10大持仓，半年报与年报则是所有的持仓股票，
+        目前是只取前10大持仓的基础数据，之后会扩充参数以及数据的类型，比如持仓占比等
+        :param fund_code:
+        :return: dict，quarter表示持仓对应的季度，portfolio: dataframe，存储前10大持仓
+        """
+        fund_portfolio = dict()
+        redis_key = fund_code[:6] + '_portfolio'
+        if self.redis_client.is_exsits(redis_key):
+            data = self.redis_client.get_data(redis_key)
+            fund_portfolio['portfolio'] = data.head(10)
+            end_dt = data.loc[0, 'end_date']
+        else:
+            data = self.pro.fund_portfolio(ts_code=fund_code).rename(
+                columns={'ts_code': 'fund_code', 'symbol': 'ts_code'})
+            end_dt = data.loc[0, 'end_date']
+            data = data[data['end_date'] == end_dt].sort_values(by='mkv', ascending=False).reset_index(drop=True)
+            data = pd.merge(left=data, right=self.basic_info.stock_basic.drop(['symbol', 'list_date'], axis=1),
+                            on='ts_code', how='left')
+            # 持仓占比
+            fund_asset = self.get_fund_asset(fund_code)
+            data['hold_pct'] = round(data['mkv'] / fund_asset * 100, 2)
+            data.fillna(value='null', inplace=True)
+            fund_portfolio['portfolio'] = data.head(10)
+            self.redis_client.store_data(key=redis_key, value=data)
+            print(fund_code + "存入redis")
+        fund_portfolio['quarter'] = get_quarter(to_date(end_dt, split=''))
+        return fund_portfolio
+
+    def get_fund_asset(self, fund_code):
+        """
+        获取基金的资产净值， 持有股票市值/基金资产净值 = 持仓占比
+        :param fund_code:
+        :return:
+        """
+        key = fund_code[:6] + '_netasset'
+        if self.redis_client.is_exsits(key):
+            fund_asset = self.redis_client.get_data(key=key)
+        else:
+            fund_asset = self.pro.fund_nav(ts_code=fund_code, market='O')
+            fund_asset = fund_asset[~fund_asset[['net_asset']].isna().any(axis=1)].reset_index(drop=True)
+            self.redis_client.store_data(key=key, value=fund_asset)
+        return fund_asset.loc[0, 'net_asset']
 
     def __del__(self):
         self.mongo_client.close()

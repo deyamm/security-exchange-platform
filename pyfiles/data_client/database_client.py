@@ -4,6 +4,7 @@ import numpy as np
 import pymongo
 import pandas as pd
 import tushare as ts
+import redis
 from pyfiles.com_lib import *
 
 
@@ -47,6 +48,8 @@ class DataClientORM(object):
 
 
 class MySqlServer(object):
+    connect = None
+    cursor = None
 
     def __init__(self, **kwargs):
         host = kwargs.get("host", 'localhost')
@@ -99,6 +102,26 @@ class TushareClient(object):
 
     def get_pro(self):
         return self.pro
+
+
+class RedisClient(object):
+    client = None
+
+    def __init__(self):
+        self.client = redis.Redis(host='localhost', port=6379, db=1)
+
+    def get_client(self):
+        return self.client
+
+    def store_data(self, key: str, value: pd.DataFrame):
+        self.client.set(key, value.to_msgpack(), ex=600)
+
+    def is_exsits(self, key):
+        return self.client.exists(key)
+
+    def get_data(self, key: str) -> pd.DataFrame:
+        value = pd.read_msgpack(self.client.get(key))
+        return value
 
 
 if __name__ == '__main__':
