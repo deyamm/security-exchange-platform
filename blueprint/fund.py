@@ -58,7 +58,7 @@ def analyse():
     if recv:
         recv = json.loads(str(recv, encoding='utf-8'))
         res = server.analyse_fund(recv['funds'])
-        print(json.dumps(res, ensure_ascii=False, indent=1))
+        # print(json.dumps(res, ensure_ascii=False, indent=1))
         return json.dumps(res, ensure_ascii=False, indent=1)
     else:
         return json.dumps({'status': 0})

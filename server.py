@@ -206,7 +206,7 @@ class Server(object):
         filters = dict()
         sec_pool_code = '399300.SZ'
         trade_dt = '2020-12-31'
-        with open('./data/indicator_dict.json') as f:
+        with open('./data/attribute_dict.json') as f:
             indi_dict = json.load(f)
         for option in options:
             words = option.split(' ')
@@ -313,7 +313,7 @@ class Server(object):
             return searched_fund
 
     def analyse_fund(self, fund_list):
-        fund_portfolio = self.data_client.get_fund_portfolio(fund_code=fund_list[0])
+        fund_portfolio = self.data_client.get_funds_portfolio(fund_list=fund_list)
         fund_portfolio['portfolio'] = fund_portfolio['portfolio'].to_dict(orient='records')
         return fund_portfolio
 

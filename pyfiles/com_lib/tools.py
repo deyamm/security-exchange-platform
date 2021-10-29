@@ -2,11 +2,10 @@
 import six
 import datetime
 from pyfiles.com_lib.exceptions import *
-from pyfiles.com_lib.variables import *
-import json
 import math
 import pandas as pd
 from typing import List
+import re
 # from pyfiles.utils import *
 
 
@@ -43,44 +42,6 @@ class BasicInfo(object):
                 return 'sec_pool'
         else:
             return 'undetermined'
-
-
-class IndicatorDict(object):
-    indicator_list = None
-    indicator_dict = {}
-    method_dict = {}
-
-    def __init__(self):
-        with open(PRO_PATH + '/data/indicator_dict.json') as f:
-            self.indicator_list = json.load(f)
-        for category in self.indicator_list:
-            indicators = self.indicator_list[category]
-            if category == 'method_name':
-                for method in indicators:
-                    self.method_dict[method] = indicators[method]
-                    continue
-            for indicator in indicators:
-                self.indicator_dict[indicator] = {'category': category, 'name': indicators[indicator]}
-
-    def echo_dict(self):
-        print(json.dumps(self.indicator_dict, indent=1, ensure_ascii=False))
-        print(json.dumps(self.method_dict, indent=1, ensure_ascii=False))
-
-    def get_method_dict(self):
-        return self.method_dict
-
-    def classify(self, indicators: List[str]):
-        res = {}
-        for indicator in indicators:
-            if indicator in self.indicator_dict:
-                category = self.indicator_dict[indicator]['category']
-                if category in res:
-                    res[category].append(indicator)
-                else:
-                    res[category] = [indicator]
-            else:
-                print('IndicatorDict: ' + indicator + ' 尚未支持')
-        return res
 
 
 def is_str(s):
@@ -164,7 +125,7 @@ def fq_trans(fq: str):
         raise ParamError("数据频率错误（D/W/M/Y）")
 
 
-def get_quarter(date: datetime.date) -> int:
+def get_quarter(date: datetime.date or str) -> int:
     """
     根据传入的日期，获取该日期所在的季度，该日期的格式具有要求
     :param date: 传入的日期
@@ -352,3 +313,55 @@ def get_option_query(filters, sql_type: str = 'mysql'):
     else:
         return None
 
+
+def del_bracket(s: str, replaceby='') -> str:
+    """
+    用指定字符串替换字符串中的排号内容
+    :param replaceby:
+    :param s:
+    :return:
+    """
+    return re.sub(u'（.*）', replaceby, s.encode('utf-8').decode())
+
+
+def stock_code_complete(stock_code: str) -> str:
+    """
+    补全股票代码
+    :param stock_code:
+    :return:
+    """
+    if len(stock_code) == 5:
+        return stock_code + '.HK'
+    elif stock_code[0] == '6':
+        return stock_code + '.SH'
+    elif stock_code[0] == '0' or stock_code[0] == '3':
+        return stock_code + '.SZ'
+    else:
+        raise ParamError("错误股票代码：%s" % stock_code)
+
+
+def fund_code_complete(fund_code: str) -> str:
+    if len(fund_code) == 9:
+        return fund_code
+    elif len(fund_code) == 6:
+        if fund_code[0] == '0' or fund_code[0] == '1':
+            return fund_code + '.OF'
+        elif fund_code[0] == '5':
+            return fund_code + '.SH'
+        else:
+            raise ParamError("待完善代码：%s" % fund_code)
+    else:
+        raise ParamError("未知代码：%s" % fund_code)
+
+
+def get_fund_end_dts(year: int, length: int) -> List[str]:
+    """
+    返回正序的公告日期列表，使用时可以用pop()来获取反序
+    :param year:
+    :param length:
+    :return:
+    """
+    end_dts = []
+    for i in range(length):
+        end_dts.append(get_fina_end_date(year=year, quarter=i+1))
+    return end_dts

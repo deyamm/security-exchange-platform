@@ -142,14 +142,14 @@
                 for(let i = 0; i < this.holdedfund.length; i++){
                     totalAmount += parseFloat(this.holdedfund[i]['holdamount']);
                 }
-                return totalAmount;
+                return parseFloat(totalAmount.toFixed(2));
             },
             totalMoney() {
                 let totalMoney = 0;
                 for(let i = 0; i < this.holdedfund.length; i++){
                     totalMoney += parseFloat(this.holdedfund[i]['holdmoney']);
                 }
-                return totalMoney;
+                return parseFloat(totalMoney.toFixed(2));
             }
         },
         methods: {
@@ -271,7 +271,7 @@
                 this.analysis["funds"].splice(0, this.analysis["funds"].length);
                 for(let i = 0; i < this.holdedfund.length; i++){
                     if(this.holdedfund[i].hasOwnProperty("ts_code")){
-                        this.analysis["funds"].push(this.holdedfund[i]['ts_code']);
+                        this.analysis["funds"].push(this.holdedfund[i]["ts_code"]);
                     }
                 }
                 this.analysis['isChanged'] = 1;
@@ -301,6 +301,8 @@
                     type: "POST",
                     data: JSON.stringify({
                         holded_fund: this.holdedfund,
+                        totalmoney: parseFloat(this.totalmoney),
+                        totalamount: parseFloat(this.totalamount),
                     }),
                     dataType: "json",
                     success: data => {
@@ -422,7 +424,7 @@
                     }),
                     dataType: "json",
                     success: data => {
-                        this.fundsData['quarter'] = data['quarter'];
+                        this.fundsData['endDate'] = data['end_date'];
                         this.fundsData['portfolio'] = data['portfolio'];
                         console.log(data);
                     },
@@ -554,7 +556,7 @@
 <template id="fund-analysis-div-tem">
     <div id="fund-analysis-div">
         <h1>持仓</h1>
-        <div>
+        <div style="height: 40%; overflow-y: auto" >
             <table class="layui-table" lay-even>
                 <colgroup></colgroup>
                 <thead>
@@ -567,8 +569,8 @@
                 </thead>
                 <tbody>
                     <tr v-for="position in fundsData.portfolio">
-                        <td>{{ position['ts_code'] }}</td>
-                        <td>{{ position['name'] }}</td>
+                        <td>{{ position['stock_code'] }}</td>
+                        <td>{{ position['stock_name'] }}</td>
                         <td>{{ position['mkv'] }}元</td>
                         <td>{{ position['hold_pct'] }}%</td>
                     </tr>

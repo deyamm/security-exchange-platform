@@ -21,3 +21,6 @@ PRO_PATH = '/home/deyam/Stock/project'
 
 # tushare token
 TS_TOKEN = '92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947'
+
+# 东财接口返回值前缀
+EASTMONEY_PREFIX = 'var apidata='

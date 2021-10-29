@@ -233,8 +233,8 @@ class Portfolio(object):
             # 判断资金是否足够
             if self.available_cash < money:
                 self.log.save_log(path=self.log_path + 'log.txt', sec_code=sec_code)
-                raise MoneyError("账户资金不足。当前资金： %f, 需要资金：%f。"
-                                 % (self.available_cash, money))
+                raise MoneyError("代码：%s, 价格：%f, 数量:%d, 账户资金不足。当前资金： %f, 需要资金：%f。"
+                                 % (sec_code, price, amount, self.available_cash, money))
             available_cash = self.available_cash
             self.available_cash = self.available_cash - money
             # 当不可取的可用资金不足以支付本次购买时，需要在可取资金中扣除
@@ -563,7 +563,7 @@ class Strategy(object):
                      ','.join(self.g.sec_pool)))
         time_start = time.time()
         current_date, self.account.previous_date = self.data_client.init_start_trade_date(
-            start_dt=to_date_str(start_date), end_dt=to_date_str(end_date))
+            start_date=start_date, end_date=end_date)
         self.account.set_cur_date(cur_dt=to_date_str(current_date))
         # 计算调仓时期
         counter = 0

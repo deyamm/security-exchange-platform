@@ -19,3 +19,10 @@ class ParamError(Exception):
 
 class SQLError(Exception):
     pass
+
+
+class RequestError(Exception):
+    """
+    请求页面错误
+    """
+    pass

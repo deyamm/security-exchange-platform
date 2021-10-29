@@ -27,6 +27,10 @@ class CollectData(object):
         self.mongo_client.close()
         self.mysql.close()
 
+    def get_fund_basic(self):
+        df = self.pro.fund_basic(market='O')
+        df.to_sql(name='fund_basic', con=self.engine, schema='basic_info', if_exists='append', index=False)
+
     def get_sw_index(self):
         """
         调用opendatatools库采集申万一级行业指数行情
@@ -503,4 +507,4 @@ if __name__ == '__main__':
     # get_sw_index()
     # get_fina_data()
     # stock_dk()
-    CollectData().get_trade_cal()
+    CollectData().get_fund_basic()

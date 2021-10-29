@@ -31,8 +31,7 @@ class BackTest(object):
               % (to_date_str(start_date), to_date_str(end_date), account.portfolio.available_cash, g.N))
         time_start = time.time()
         # 首先在设定起始日期的基础上使得当前日期以及上一日期无为交易日
-        current_date, account.previous_date = data_client.init_start_trade_date(to_date_str(start_date),
-                                                                                to_date_str(end_date))
+        current_date, account.previous_date = data_client.init_start_trade_date(start_date, end_date)
         account.current_date = current_date
         #
         counter = 0

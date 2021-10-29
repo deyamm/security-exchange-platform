@@ -4,12 +4,11 @@
 """
 import warnings
 from typing import Iterable, List
-import pymongo
-import tushare as ts
 from pyfiles.com_lib.tools import *
 from pyfiles.com_lib.variables import *
 from .database_client import *
 from .update_data import UpdateDataClient
+from .functions import *
 import pandas as pd
 
 
@@ -18,6 +17,7 @@ class DataClient(object):
     trade_cal = None
     mongo_client = None
     redis_client = None
+    eastmoney_client = None
     pro = None
     error_level = None
     update_client = None
@@ -42,6 +42,8 @@ class DataClient(object):
         self.trade_cal = self.mysql_client.query("select * from basic_info.trade_cal")
         # redis
         self.redis_client = RedisClient()
+        # 东财接口
+        self.eastmoney_client = EastMoneyClient()
         # 将datetime类型设置为索引，输出整个对象时只显示日期，实际仍是datetime类型
         self.trade_cal.set_index('cal_date', inplace=True)
         # print(self.trade_cal)
@@ -168,19 +170,20 @@ class DataClient(object):
             return to_date_str(dates[1])
         return to_date_str(dates[0])
 
-    def init_start_trade_date(self, start_dt: str, end_dt: str):
+    def init_start_trade_date(self, start_date: datetime.date, end_date: datetime):
         """
         在回测开始前获取第一次交易的日期，包括第一个交易日以及该交易日前的最后一个交易日
-        :param start_dt: 回测的开始日期
-        :param end_dt: 回测的结束日期
+        :param start_date: 回测的开始日期
+        :param end_date: 回测的结束日期
         :return:
         """
         warnings.filterwarnings("ignore")
         # 以开始日期之后的第一个交易日为当前日期
-        current_dt = self.trade_cal.loc[start_dt: end_dt][self.trade_cal['is_open'] == 1]
+        # print(type(self.trade_cal.index[0]))
+        current_dt = self.trade_cal.loc[start_date: end_date][self.trade_cal['is_open'] == 1]
         current_date = to_date(current_dt.index[0])
         # 以开始日期之前的最后一个交易日为前一个日期
-        previous_dt = self.trade_cal.loc[: start_dt][self.trade_cal['is_open'] == 1]
+        previous_dt = self.trade_cal.loc[: start_date][self.trade_cal['is_open'] == 1]
         previous_date = to_date(previous_dt.index[-1])
         #
         return current_date, previous_date
@@ -457,7 +460,7 @@ class DataClient(object):
         :param date: 需要判断的日期
         :return: 0/1
         """
-        return self.trade_cal.loc[to_date_str(date)]['is_open']
+        return self.trade_cal.loc[date]['is_open']
 
     def is_latest(self, ts_code: str, asset: str = 'E'):
         """
@@ -713,12 +716,14 @@ class DataClient(object):
             res.loc[sec_code, 'pb'] = self.get_pb(dt=dt, sec_code=sec_code)
         return res
 
-    def get_fund_portfolio(self, fund_code: str):
+    def get_fund_portfolio(self, fund_code: str, api=1) -> dict:
         """
         获取指定基金的持仓数据，是从最新一期报告开始的过去的持仓数据，
         其中一季报与三季报只包含前10大持仓，半年报与年报则是所有的持仓股票，
         目前是只取前10大持仓的基础数据，之后会扩充参数以及数据的类型，比如持仓占比等
+        * 持仓股可能会因为多次的季度报告而重复
         :param fund_code:
+        :param api: 获取接口种类， 0：tushare，1：eastmoney
         :return: dict，quarter表示持仓对应的季度，portfolio: dataframe，存储前10大持仓
         """
         fund_portfolio = dict()
@@ -728,21 +733,61 @@ class DataClient(object):
             fund_portfolio['portfolio'] = data.head(10)
             end_dt = data.loc[0, 'end_date']
         else:
-            data = self.pro.fund_portfolio(ts_code=fund_code).rename(
-                columns={'ts_code': 'fund_code', 'symbol': 'ts_code'})
-            end_dt = data.loc[0, 'end_date']
-            data = data[data['end_date'] == end_dt].sort_values(by='mkv', ascending=False).reset_index(drop=True)
-            data = pd.merge(left=data, right=self.basic_info.stock_basic.drop(['symbol', 'list_date'], axis=1),
-                            on='ts_code', how='left')
-            # 持仓占比
-            fund_asset = self.get_fund_asset(fund_code)
-            data['hold_pct'] = round(data['mkv'] / fund_asset * 100, 2)
-            data.fillna(value='null', inplace=True)
-            fund_portfolio['portfolio'] = data.head(10)
-            self.redis_client.store_data(key=redis_key, value=data)
-            print(fund_code + "存入redis")
-        fund_portfolio['quarter'] = get_quarter(to_date(end_dt, split=''))
+            if api == 0:  # 调用tushare接口
+                data = self.pro.fund_portfolio(ts_code=fund_code).rename(
+                    columns={'ts_code': 'fund_code', 'symbol': 'ts_code'})
+                end_dt = data.loc[0, 'end_date']
+                data = data[data['end_date'] == end_dt]\
+                    .sort_values(by='mkv', ascending=False)\
+                    .reset_index(drop=True)\
+                    .drop_duplicates(subset=['ts_code'])
+                data = pd.merge(left=data, right=self.basic_info.stock_basic.drop(['symbol', 'list_date'], axis=1),
+                                on='ts_code', how='left')
+                # 持仓占比
+                fund_asset = self.get_fund_asset(fund_code)
+                data['hold_pct'] = round(data['mkv'] / fund_asset * 100, 2)
+                data.fillna(value='null', inplace=True)
+                data.rename(columns={'ts_code': 'stock_code', 'name': 'stock_name'}, inplace=True)
+                fund_portfolio['portfolio'] = data.head(10)
+                self.redis_client.store_data(key=redis_key, value=data)
+            elif api == 1:  # 调用东财接口
+                now_date = datetime.date.today()
+                data = self.eastmoney_client.get_fund_portfolio(code=fund_code, topline=10,
+                                                                year=now_date.year, month=now_date.month)
+                fund_portfolio['portfolio'] = data.head(10)
+                self.redis_client.store_data(key=redis_key, value=data)
+                end_dt = data.loc[0: 'end_date']
+            else:
+                raise ParamError("错误接口：%d" % api)
+            fund_portfolio['end_date'] = end_dt
         return fund_portfolio
+
+    def get_funds_portfolio(self, fund_list: List[str]):
+        """
+        获取持有基金的总持仓
+        :param fund_list:
+        :return:
+        """
+        if len(fund_list) >= 2:
+            fund_list = ['001549.OF', '110022.OF']
+        with open(PRO_PATH + '/data/holded_fund.json') as f:
+            hold_funds = json.load(f)
+        portfolio = None
+        # 获取持仓组合的持有金额和份额
+        hold_funds_info = pd.DataFrame(hold_funds['holded_fund']).set_index(keys=['ts_code'])
+        target_funds = hold_funds_info.loc[fund_list][['holdmoney', 'holdamount']]
+        target_funds[['holdmoney', 'holdamount']] = target_funds[['holdmoney', 'holdamount']].astype('float')
+        target_funds['hold_pct'] = target_funds['holdmoney'] / target_funds['holdmoney'].sum()
+        print(target_funds)
+        # 计算组合的持仓及其他统计数据
+        for fund_code in fund_list:
+            fund_portfolio = self.get_fund_portfolio(fund_code)
+            if portfolio is None:
+                portfolio = fund_portfolio["portfolio"]
+            else:
+                portfolio = portfolio.append(fund_portfolio["portfolio"], ignore_index=True)
+        combine_fund_portfolio(portfolio)
+        return {'portfolio': portfolio, 'quarter': 2}
 
     def get_fund_asset(self, fund_code):
         """
@@ -753,8 +798,13 @@ class DataClient(object):
         key = fund_code[:6] + '_netasset'
         if self.redis_client.is_exsits(key):
             fund_asset = self.redis_client.get_data(key=key)
+            print(fund_asset)
         else:
-            fund_asset = self.pro.fund_nav(ts_code=fund_code, market='O')
+            if fund_code[-2:] == 'SH':
+                market = 'E'
+            else:
+                market = 'O'
+            fund_asset = self.pro.fund_nav(ts_code=fund_code, market=market)
             fund_asset = fund_asset[~fund_asset[['net_asset']].isna().any(axis=1)].reset_index(drop=True)
             self.redis_client.store_data(key=key, value=fund_asset)
         return fund_asset.loc[0, 'net_asset']
