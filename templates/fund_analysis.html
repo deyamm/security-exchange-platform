@@ -270,8 +270,8 @@
                 //console.log(this.holdedfund);
                 this.analysis["funds"].splice(0, this.analysis["funds"].length);
                 for(let i = 0; i < this.holdedfund.length; i++){
-                    if(this.holdedfund[i].hasOwnProperty("ts_code")){
-                        this.analysis["funds"].push(this.holdedfund[i]["ts_code"]);
+                    if(this.holdedfund[i].hasOwnProperty("fund_code")){
+                        this.analysis["funds"].push(this.holdedfund[i]["fund_code"]);
                     }
                 }
                 this.analysis['isChanged'] = 1;
@@ -335,9 +335,9 @@
                     dataType: "json",
                     success: data => {
                         for(let i = 0; i < data['holded_fund'].length; i++){
-                            if(!this.hasHolded.hasOwnProperty(data['holded_fund'][i]['ts_code'])){
+                            if(!this.hasHolded.hasOwnProperty(data['holded_fund'][i]['fund_code'])){
                                 this.holdedfund.push(data['holded_fund'][i]);
-                                this.hasHolded[data['holded_fund'][i]['ts_code']] = 1;
+                                this.hasHolded[data['holded_fund'][i]['fund_code']] = 1;
                             }
 
                         }
@@ -372,7 +372,7 @@
                 console.log(fundcode);
                 let pos = -1;
                 for(let i = 0;i < this.holdedfund.length; i++){
-                    if(fundcode === this.holdedfund[i]["ts_code"]){
+                    if(fundcode === this.holdedfund[i]["fund_code"]){
                         pos = i;
                         break;
                     }
@@ -411,7 +411,31 @@
         },
         data() {
             return {
-                fundsData: {}
+                fundsData: {},
+                fundPctChart: null,
+                industryPctChart: null
+            }
+        },
+        mounted() {
+            this.fundPctChart = echarts.init(document.getElementById("fund-pct-chart"));
+            this.industryPctChart = echarts.init(document.getElementById("industry-pct-chart"));
+        },
+        computed: {
+            fundPctOption(){
+                return getPieOption("基金持仓占比", this.fundsData['fundsPct'].map(function(unit) {
+                    return {
+                        "value": unit['hold_pct'],
+                        "name": unit['name']
+                    }
+                }));
+            },
+            industryPctOption(){
+                return getPieOption("行业持仓占比", this.fundsData['industryPct'].map(function(unit) {
+                    return {
+                        "value": unit['hold_pct'],
+                        "name": unit['industry']
+                    }
+                }));
             }
         },
         methods: {
@@ -424,9 +448,15 @@
                     }),
                     dataType: "json",
                     success: data => {
-                        this.fundsData['endDate'] = data['end_date'];
+                        this.fundsData['totalmoney'] = data['metrics']['totalmoney'];
+                        this.fundsData['totalpct'] = data['metrics']['totalpct'];
                         this.fundsData['portfolio'] = data['portfolio'];
-                        console.log(data);
+                        this.fundsData['endDate'] = data['metrics']['enddate'];
+                        this.fundsData['industryPct'] = data['industry_pct'];
+                        this.fundsData['fundsPct'] = data['funds_pct'];
+                        console.log(this.fundsData);
+                        this.drawFundPctGraph();
+                        this.drawIndustryPctGraph();
                     },
                     error: (XMLHttpRequest, textStatus, errorThrown) => {
                         layui.use('layer', function(){
@@ -438,7 +468,13 @@
                         })
                     }
                 })
-            }
+            },
+            drawFundPctGraph(){
+                this.fundPctChart.setOption(this.fundPctOption);
+            },
+            drawIndustryPctGraph(){
+                this.industryPctChart.setOption(this.industryPctOption);
+            },
         },
         template: '#fund-analysis-div-tem',
     });
@@ -454,6 +490,33 @@
         template: '#fund-market-div-tem',
     });
     app.mount("#list-div");
+    function getPieOption(title, data){
+        console.log(data);
+        return {
+            title: {
+                text: title,
+                left: 'center'
+            },
+            tooltip: {
+                trigger: 'item',
+            },
+            series: [
+                {
+                    name: '持仓占比',
+                    type: 'pie',
+                    radius: '50%',
+                    data: data,
+                    emphasis: {
+                        itemStyle: {
+                            shodowBlur: 10,
+                            shadowOffsetX: 0,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                        }
+                    }
+                }
+            ]
+        }
+    }
 </script>
 <template id="fund-hold-div-tem">
     <div id="fund-hold-div">
@@ -534,12 +597,12 @@
                 </thead>
                 <tbody>
                     <tr v-for="fundinfo in holdedfund">
-                        <td class="fund-code" v-on:click="fundInfo(fundinfo.ts_code)">{{ fundinfo['ts_code'] }}</td>
+                        <td class="fund-code" v-on:click="fundInfo(fundinfo.fund_code)">{{ fundinfo['fund_code'] }}</td>
                         <td>{{ fundinfo['name'] }}</td>
                         <td><input type="text" v-model="fundinfo.holdmoney" v-bind:disabled="isEditDisabled"></td>
                         <td><input type="text" v-model="fundinfo.holdamount" v-bind:disabled="isEditDisabled"></td>
                         <td>{{ (fundinfo.holdmoney/this.totalmoney*100).toFixed(2)+'%' }}</td>
-                        <td v-if="!isEditDisabled"><button class="layui-icon layui-icon-close-fill btn-style-1" v-on:click="delHolded(fundinfo.ts_code)"></button></td>
+                        <td v-if="!isEditDisabled"><button class="layui-icon layui-icon-close-fill btn-style-1" v-on:click="delHolded(fundinfo.fund_code)"></button></td>
                     </tr>
                     <tr>
                         <td>总持有</td>
@@ -555,7 +618,8 @@
 </template>
 <template id="fund-analysis-div-tem">
     <div id="fund-analysis-div">
-        <h1>持仓</h1>
+        <label>持仓</label><label>公告日期：{{ fundsData.endDate }}</label>
+        <p v-if="typeof(fundsData.portfolio) != 'undefined'">共{{ fundsData.portfolio.length }}条记录</p>
         <div style="height: 40%; overflow-y: auto" >
             <table class="layui-table" lay-even>
                 <colgroup></colgroup>
@@ -563,7 +627,7 @@
                     <tr>
                         <th>股票代码</th>
                         <th>股票名称</th>
-                        <th>持有市值</th>
+                        <th>持有金额</th>
                         <th>持仓占比</th>
                     </tr>
                 </thead>
@@ -571,17 +635,21 @@
                     <tr v-for="position in fundsData.portfolio">
                         <td>{{ position['stock_code'] }}</td>
                         <td>{{ position['stock_name'] }}</td>
-                        <td>{{ position['mkv'] }}元</td>
+                        <td>{{ position['holdmoney'] }}元</td>
                         <td>{{ position['hold_pct'] }}%</td>
                     </tr>
                     <tr>
                         <td>总计</td>
                         <td></td>
-                        <td></td>
-                        <td></td>
+                        <td>{{ fundsData.totalmoney }}</td>
+                        <td>{{ fundsData.totalpct }}</td>
                     </tr>
                 </tbody>
             </table>
+        </div>
+        <div>
+            <div id="fund-pct-chart" style="float: left; width: 300px; height: 300px"></div>
+            <div id="industry-pct-chart" style="float: right; width: 300px; height: 300px"></div>
         </div>
     </div>
 </template>

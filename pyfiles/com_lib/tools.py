@@ -20,6 +20,7 @@ class BasicInfo(object):
 
     def __init__(self, mysql_client, **kwargs):
         self.stock_basic = mysql_client.query("select * from basic_info.stock_basic")
+        self.stock_basic.rename(columns={'ts_code': 'stock_code'}, inplace=True)
         self.index_basic = mysql_client.query("select * from basic_info.index_basic")
         self.fund_basic = mysql_client.query("select * from basic_info.fund_basic")
         self.trade_cal = mysql_client.query("select * from basic_info.trade_cal")

@@ -768,30 +768,40 @@ class DataClient(object):
         :param fund_list:
         :return:
         """
-        if len(fund_list) >= 2:
-            fund_list = ['001549.OF', '110022.OF']
+        # if len(fund_list) >= 2:
+        #     fund_list = ['008283.OF', '001595.OF']
         with open(PRO_PATH + '/data/holded_fund.json') as f:
             hold_funds = json.load(f)
         portfolio = None
         # 获取持仓组合的持有金额和份额
-        hold_funds_info = pd.DataFrame(hold_funds['holded_fund']).set_index(keys=['ts_code'])
-        target_funds = hold_funds_info.loc[fund_list][['holdmoney', 'holdamount']]
+        hold_funds_info = pd.DataFrame(hold_funds['holded_fund']).set_index(keys=['fund_code'])
+        target_funds = hold_funds_info.loc[fund_list][['name', 'holdmoney', 'holdamount']]
         target_funds[['holdmoney', 'holdamount']] = target_funds[['holdmoney', 'holdamount']].astype('float')
-        target_funds['hold_pct'] = target_funds['holdmoney'] / target_funds['holdmoney'].sum()
+        target_funds['hold_pct'] = round(target_funds['holdmoney'] / target_funds['holdmoney'].sum() * 100, 2)
         print(target_funds)
         # 计算组合的持仓及其他统计数据
         for fund_code in fund_list:
+            # 获取基金的公告持仓，之后需要结合自己的持有金额进行转换
             fund_portfolio = self.get_fund_portfolio(fund_code)
             if portfolio is None:
-                portfolio = fund_portfolio["portfolio"]
+                fund_portfolio['portfolio']['holdmoney'] = round(fund_portfolio['portfolio']['hold_pct']
+                                                                 * target_funds.loc[fund_code, 'holdmoney'] / 100, 2)
+                portfolio = fund_portfolio['portfolio'].drop(['amount', 'mkv', 'hold_pct'], axis=1)
+                # print(fund_portfolio['portfolio'])
             else:
-                portfolio = portfolio.append(fund_portfolio["portfolio"], ignore_index=True)
-        combine_fund_portfolio(portfolio)
-        return {'portfolio': portfolio, 'quarter': 2}
+                fund_portfolio['portfolio']['holdmoney'] = round(fund_portfolio['portfolio']['hold_pct']
+                                                                 * target_funds.loc[fund_code, 'holdmoney'] / 100, 2)
+                portfolio = portfolio.append(fund_portfolio['portfolio'].drop(['amount', 'mkv', 'hold_pct'], axis=1),
+                                             ignore_index=True)
+        # print(portfolio)
+        portfolio = combine_fund_portfolio(portfolio, target_funds['holdmoney'].sum(),
+                                           self.basic_info.stock_basic[['stock_code', 'industry']])
+        portfolio['funds_pct'] = target_funds.reset_index().to_dict(orient='records')
+        return portfolio
 
     def get_fund_asset(self, fund_code):
         """
-        获取基金的资产净值， 持有股票市值/基金资产净值 = 持仓占比
+        **获取基金的资产净值， 持有股票市值/基金资产净值 = 持仓占比（在特定情况下）
         :param fund_code:
         :return:
         """

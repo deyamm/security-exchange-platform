@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
-from pyfiles.com_lib.tools import *
+from pyfiles.com_lib import *
 from pyfiles.backtest.back_test import BackTest
 from pyfiles.data_client import DataClient, MySqlServer
 from pyfiles.strategies.single_indicator import SingleIndicator
-from pyfiles.com_lib.exceptions import *
 from typing import List
 from opendatatools import swindex
 import json
@@ -81,9 +80,9 @@ class Server(object):
         # print(filters)
         # sec_codes = ['000001.SZ', '000002.SZ']
         # 根据财务筛选条件获取财务数据
-        if filters.get("fina_indi") is not None:
+        if filters.get("fina_attr") is not None:
             fina_data = self.data_client.get_fina_list(sec_codes=sec_codes, columns=[], year=trade_date.year,
-                                                       quarter=get_quarter(trade_date), filters=filters['fina_indi'])
+                                                       quarter=get_quarter(trade_date), filters=filters['fina_attr'])
         else:
             fina_data = self.data_client.get_fina_list(sec_codes=sec_codes, columns=[], year=trade_date.year,
                                                        quarter=get_quarter(trade_date))
@@ -94,10 +93,10 @@ class Server(object):
         fina_data['name'] = stock_basic.loc[fina_data['ts_code'], 'name'].values
         # print(stock_basic)
         # 获取符合条件的行情数据
-        if filters.get("kline") is not None:
+        if filters.get("kline_attr") is not None:
             indicator = self.data_client.get_k_data(dt=to_date_str(trade_date), sec_codes=sec_codes,
                                                     columns=['ts_code', 'close', 'turnover_rate', 'pe', 'pb',
-                                                             'total_mv', 'circ_mv'], filters=filters['kline'],
+                                                             'total_mv', 'circ_mv'], filters=filters['kline_attr'],
                                                     is_recur=False)
         else:
             indicator = self.data_client.get_k_data(dt=to_date_str(trade_date), sec_codes=sec_codes,
@@ -272,7 +271,7 @@ class Server(object):
     @staticmethod
     def add_option(key: str, words: List[str], filters: dict):
         """
-        向filters参数中添加可能由数据库处理的筛选条件
+        向filters参数中添加可以由数据库处理的筛选条件
         :param key: 条件类别，包括行情类、财务数据类等
         :param words: 初步处理的字符串筛选条件列表，一个words列表代表一个筛选条件
         :param filters: 处理后的筛选条件字典
@@ -314,7 +313,6 @@ class Server(object):
 
     def analyse_fund(self, fund_list):
         fund_portfolio = self.data_client.get_funds_portfolio(fund_list=fund_list)
-        fund_portfolio['portfolio'] = fund_portfolio['portfolio'].to_dict(orient='records')
         return fund_portfolio
 
 

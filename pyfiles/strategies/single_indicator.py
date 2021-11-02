@@ -13,7 +13,7 @@
         年报获取问题
 """
 from pyfiles.backtest.api import *
-from pyfiles.com_lib.tools import *
+from pyfiles.com_lib import *
 import six
 
 
@@ -49,7 +49,7 @@ class SingleIndicator(Strategy):
         self.g.start_dt = self.kwargs.get("start_dt", '2016-01-01')
         self.g.end_dt = self.kwargs.get("end_dt", '2021-01-01')
         self.backtest_params['echo_info'] = self.kwargs.get("echo_info", 1)
-        indicator_dict = IndicatorDict()
+        indicator_dict = AttributeDict()
         self.indicator_dict = indicator_dict.classify([self.g.indicator])
 
     def set_variables(self):

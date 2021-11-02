@@ -193,6 +193,7 @@ class EastMoneyClient(object):
     def format_fund_portfolio(self, dt: pd.DataFrame, end_date: str, fund_code: str):
         """
         将从网页中获取的原始持仓数据的格式结构化
+        该方法是在所传参数的原对象上修改
         :param dt:
         :param end_date: 该持仓的公告日期
         :param fund_code:
