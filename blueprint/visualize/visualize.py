@@ -2,22 +2,25 @@ from flask import Blueprint, request, render_template
 import json
 from pyfiles.com_lib.variables import *
 import pandas as pd
-from server import Server
+from .server import *
 
 path = 'visualize'
 
-visualize = Blueprint(path, __name__, url_prefix='/'+path)
-
-server = Server()
+visualize_bp = Blueprint(path, __name__, url_prefix='/'+path)
 
 
-@visualize.route('/init', methods=['GET', 'POST'])
+@visualize_bp.route('/')
+def quant_indicator_page():
+    return render_template('visualize.html')
+
+
+@visualize_bp.route('/init', methods=['GET', 'POST'])
 def quant_init():
     recv = request.get_data()
     if recv:
         recv = json.loads(str(recv, encoding='utf-8'))
         res = dict()
-        res['quantdata'] = server.get_quant_data()
+        res['quantdata'] = get_quant_data()
         # res['heatmapdata'] = server.get_heatmap_data(is_save=True)
         with open(PRO_PATH + '/data/heatmap.json') as f:
             res['heatmapdata'] = json.load(f)
@@ -30,17 +33,12 @@ def quant_init():
         return json.dumps({'status': 'fail'})
 
 
-@visualize.route('/')
-def quant_indicator_page():
-    return render_template('visualize.html')
+# @visualize.route('/bar.html')
+# def show_bar():
+#     return render_template('three.html')
 
 
-@visualize.route('/bar.html')
-def show_bar():
-    return render_template('three.html')
-
-
-@visualize.route('/save_quantdata', methods=['GET', 'POST'])
+@visualize_bp.route('/save_quantdata', methods=['GET', 'POST'])
 def save_quantdata():
     recv = request.get_data()
     if recv:

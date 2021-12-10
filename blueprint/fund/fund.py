@@ -1,33 +1,31 @@
 from flask import Blueprint, request, render_template
 import json
 from pyfiles.com_lib.variables import *
-from server import Server
+from .server import *
 
 path = 'fund'
 
-fund = Blueprint(path, __name__, url_prefix='/'+path)
-
-server = Server()
+fund_bp = Blueprint(path, __name__, url_prefix='/'+path)
 
 
-@fund.route('/analysis.html')
+@fund_bp.route('/analysis.html')
 def index():
     return render_template("fund_analysis.html")
 
 
-@fund.route('/search_fund', methods=['GET', 'POST'])
+@fund_bp.route('/search_fund', methods=['GET', 'POST'])
 def search_fund():
     recv = request.get_data()
     if recv:
         recv = json.loads(str(recv, encoding='utf-8'))
-        res = server.search_fund(recv['code'], recv['decided'])
+        res = search_fund(recv['code'], recv['decided'])
         # print(res)
         return json.dumps(res)
     else:
         return json.dumps({'status': 'fail'})
 
 
-@fund.route('/save_holded_fund', methods=['GET', 'POST'])
+@fund_bp.route('/save_holded_fund', methods=['GET', 'POST'])
 def save_holded_fund():
     recv = request.get_data()
     if recv:
@@ -40,7 +38,7 @@ def save_holded_fund():
         return json.dumps({'status': 0})
 
 
-@fund.route('/load_holded_fund', methods=['GET', 'POST'])
+@fund_bp.route('/load_holded_fund', methods=['GET', 'POST'])
 def load_holded_fund():
     recv = request.get_data()
     if recv:
@@ -52,12 +50,12 @@ def load_holded_fund():
         return json.dumps({'status': 0})
 
 
-@fund.route('/analyse', methods=['GET', 'POST'])
+@fund_bp.route('/analyse', methods=['GET', 'POST'])
 def analyse():
     recv = request.get_data()
     if recv:
         recv = json.loads(str(recv, encoding='utf-8'))
-        res = server.analyse_fund(recv['funds'])
+        res = analyse_fund(recv['funds'])
         # print(json.dumps(res, ensure_ascii=False, indent=1))
         return json.dumps(res, ensure_ascii=False, indent=1)
     else:

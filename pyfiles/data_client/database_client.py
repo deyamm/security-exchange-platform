@@ -5,6 +5,7 @@ import tushare as ts
 import redis
 import requests
 import js2py
+import pickle
 from bs4 import BeautifulSoup
 from pyfiles.com_lib import *
 
@@ -115,14 +116,15 @@ class RedisClient(object):
         return self.client
 
     def store_data(self, key: str, value: pd.DataFrame):
-        self.client.set(key, value.to_msgpack(), ex=600)
+        self.client.set(key, pickle.dumps(value), ex=600)
         print('%s has stored in redis, existence time: 600s' % key)
 
     def is_exsits(self, key):
         return self.client.exists(key)
 
     def get_data(self, key: str) -> pd.DataFrame:
-        value = pd.read_msgpack(self.client.get(key))
+        # value = pd.read_pickle(self.client.get(key))
+        value = pickle.loads(self.client.get(key))
         return value
 
 
@@ -200,7 +202,7 @@ class EastMoneyClient(object):
         :return:
         """
         # 通过英文列名筛选出有用的列
-        n_columns, o_columns = self.attr_dict.columns_attr(dt.columns)
+        n_columns, o_columns = self.attr_dict.columns_attr(dt.columns.tolist())
         dt.drop(o_columns, axis=1, inplace=True)
         dt.columns = n_columns
         # print(id(dt))

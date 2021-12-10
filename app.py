@@ -1,22 +1,17 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, request
-from flask import render_template
-from flask_cors import CORS
+from flask import Flask, request, render_template
 import json
-from server import Server
-from blueprint import visualize, fetch_data, backtest, stock_filter, fund
+from blueprint import *
 
 app = Flask(__name__)
 app.jinja_env.variable_start_string = '[['
 app.jinja_env.variable_end_string = ']]'
 
-server = Server()
-
-app.register_blueprint(visualize.visualize)
-app.register_blueprint(fetch_data.data)
-app.register_blueprint(backtest.backtest)
-app.register_blueprint(stock_filter.stock_filter)
-app.register_blueprint(fund.fund)
+app.register_blueprint(visualize.visualize_bp)
+app.register_blueprint(fetch_data.fetch_data_bp)
+app.register_blueprint(backtest.backtest_bp)
+app.register_blueprint(stock_filter.stock_filter_bp)
+app.register_blueprint(fund.fund_bp)
 
 
 @app.route('/')

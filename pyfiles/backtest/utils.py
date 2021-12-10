@@ -18,9 +18,9 @@ class TradeLog(object):
     """
 
     def __init__(self):
-        self.logs = []
-        self.log_dict_list = []
-        self.log_df = pd.DataFrame()
+        self.__logs = []
+        self.__log_dict_list = []
+        self.__log_df = pd.DataFrame()
         pass
 
     def add_log(self, sec_code, side, dt, price, amount, money, available_cash):
@@ -43,9 +43,9 @@ class TradeLog(object):
                          % (dt, sec_code, amount, price, money, available_cash)
         else:
             single_log = "日期：%s" % dt
-        self.logs.append(single_log)
-        self.log_dict_list.append({'sec_code': sec_code, 'side': side, 'date': dt, 'price': price,
-                                   'amount': amount, 'money': money, 'available_cash': available_cash})
+        self.__logs.append(single_log)
+        self.__log_dict_list.append({'sec_code': sec_code, 'side': side, 'date': dt, 'price': price,
+                                     'amount': amount, 'money': money, 'available_cash': available_cash})
 
     def save_log(self, path, sec_code=None):
         """
@@ -55,7 +55,7 @@ class TradeLog(object):
         :param sec_code: 所要保存log的指定证券代码，
         :return:
         """
-        log_df = pd.DataFrame(self.log_dict_list)
+        log_df = pd.DataFrame(self.__log_dict_list)
         # print(log_df)
         if sec_code is None:
             log_index = log_df.index.tolist()
@@ -63,7 +63,7 @@ class TradeLog(object):
             log_index = log_df[log_df['sec_code'] == sec_code].index.tolist()
         with open(path, 'w') as f:
             for i in log_index:
-                f.write(self.logs[i] + '\n')
+                f.write(self.__logs[i] + '\n')
 
 
 class GlobalVariable:

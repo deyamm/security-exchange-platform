@@ -39,7 +39,7 @@ class AttributeDict(object):
                 print('attributeDict: ' + attribute + ' 尚未支持')
         return res
 
-    def columns_attr(self, columns: str, return_old=True):
+    def columns_attr(self, columns: List[str], return_old=True):
         """
         将汉字属性转换为统一的英文属性，将存在于属性库中的属性与不存在的分开两个列表
         :param columns:

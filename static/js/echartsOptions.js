@@ -257,14 +257,17 @@ function getHeatmapOption(data, type) {
     let horizon = data['trade_date'];
     let vertical = data['industry'];
     let heatmapData = null;
+    let range = 10;
     if (type === 1) {
         heatmapData = data['heatmap'].map((item) => {
             return [item[0], item[1], item[2]]
         });
+        range = 10;
     } else if (type === 2) {
         heatmapData = data['heatmap'].map((item) => {
             return [item[0], item[1], item[3]]
         });
+        range = 25;
     } else {
         alert("未知类型：" + type);
     }
@@ -300,8 +303,8 @@ function getHeatmapOption(data, type) {
             }
         },
         visualMap: {
-            min: -10,
-            max: 10,
+            min: -range,
+            max: range,
             calculable: true,
             orient: 'horizontal',
             left: 'center',
